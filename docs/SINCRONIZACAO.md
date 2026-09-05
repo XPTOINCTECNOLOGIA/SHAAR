@@ -166,3 +166,61 @@ Para acrescentar uma exceção:
 ```sql
 insert into shaar_directory_ignorar (email, motivo) values ('caixa@xptoinc.com.br', 'motivo');
 ```
+
+---
+
+# Rotação do segredo de assinatura — 05/09/2026
+
+O `JWT_SECRET` do Supabase foi exposto em texto claro durante trabalho de
+implantação e foi rotacionado. Registro do que foi feito, porque a próxima
+rotação vai querer o mesmo roteiro.
+
+## Por que não foi uma troca simples
+
+A chave anónima está embutida no bundle JavaScript de sete aplicações
+(SHAAR, TIKKUN, MANNA, JIREH, FAITH, MERKAVAH, SPHRAGIS). Trocar o segredo
+invalida essa chave: as sete param no mesmo instante e só voltam depois de
+recompiladas. TETELESTAI e BNEI YISRAEL não entram — os Container Apps deles
+falam com o Postgres por `database-url`, sem passar pela chave.
+
+## O que permitiu fazer sem indisponibilidade
+
+Duas coisas já estavam no stack, vazias:
+
+- `JWT_JWKS` — o `docker-compose.yml` define
+  `PGRST_JWT_SECRET: ${JWT_JWKS:-${JWT_SECRET}}`, então o PostgREST aceita um
+  **conjunto** de chaves em vez de uma só.
+- Os slots `SUPABASE_PUBLISHABLE_KEY` / `SUPABASE_SECRET_KEY` do gateway.
+
+## Armadilhas encontradas
+
+- **O gateway é o Envoy, não o Kong.** O `volumes/api/kong.yml` é resquício da
+  migração e não é lido por ninguém. Quem decide o que passa é o filtro Lua em
+  `volumes/api/envoy/lds.template.yaml`.
+- **O Envoy exige as quatro variáveis juntas.** `SUPABASE_PUBLISHABLE_KEY`,
+  `SUPABASE_SECRET_KEY`, `ANON_KEY_ASYMMETRIC` e `SERVICE_ROLE_KEY_ASYMMETRIC`
+  formam uma condição única (`TRANSLATION_ENABLED`). Preencher duas não faz nada.
+- **Os serviços do compose têm nome próprio**: o gateway é `api-gw`, não `kong`.
+
+## As quatro fases
+
+| | O quê | Efeito para o usuário |
+| --- | --- | --- |
+| A | `JWT_JWKS` com as duas chaves; as quatro variáveis do Envoy | nenhum |
+| B | as sete aplicações republicadas com a chave nova, uma a uma | nenhum |
+| C | `JWT_SECRET`, `ANON_KEY` e `SERVICE_ROLE_KEY` passam a ser os novos | sessões antigas caem |
+| D | conjunto e slots esvaziados; a chave anterior é recusada | — |
+
+Cada fase testou antes e depois e reverteria sozinha em caso de falha.
+
+## Verificação final
+
+Chave nova aceita em `/rest/v1` e `/auth/v1`; chave anterior devolve
+`Unauthorized`; as sete aplicações respondem HTTP 200 nos domínios próprios.
+
+## Pendências
+
+- `/root/rotacao` na `vm-supabase` guarda as chaves e os backups do `.env`.
+  Apagar depois de alguns dias de operação normal.
+- O código do SPHRAGIS foi para o branch `claude/xpto-hub-microapps-sfnk3u`;
+  o bundle em produção já está certo, mas o `main` ainda não tem a mudança.
