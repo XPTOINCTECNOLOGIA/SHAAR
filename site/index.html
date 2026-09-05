@@ -54,27 +54,6 @@
   button{font-family:inherit}
   img{max-width:100%}
 
-  /* ---------- barra de demonstração ---------- */
-  .demobar{
-    position:sticky;top:0;z-index:60;
-    display:flex;align-items:center;gap:9px;flex-wrap:wrap;
-    padding:9px 20px;background:rgba(10,15,28,.94);backdrop-filter:blur(8px);
-    border-bottom:1px solid var(--edge-soft);
-  }
-  .demobar .tag{
-    font-size:9.5px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;
-    color:var(--ciano);border:1px solid rgba(96,207,226,.38);border-radius:4px;padding:2px 8px;
-  }
-  .demobar .hint{color:#59708F;font-size:12.5px}
-  .persona{
-    border:1px solid var(--edge);background:transparent;color:var(--body);
-    border-radius:99px;padding:5px 14px;font-size:12.5px;cursor:pointer;font-weight:600;
-    transition:border-color .18s,color .18s;
-  }
-  .persona:hover{color:#fff;border-color:var(--aco)}
-  .persona.active{border-color:var(--ciano);color:var(--ciano);background:rgba(96,207,226,.07)}
-  .persona small{opacity:.72;font-weight:400}
-
   .screen{display:none}
   .screen.on{display:block}
 
@@ -173,7 +152,7 @@
     margin-top:11px;font-weight:600;letter-spacing:.09em;text-indent:.09em;text-transform:none;font-size:13px;
   }
   .btn-quiet:hover{color:#fff;border-color:var(--aco)}
-  .btn:focus-visible,.persona:focus-visible,.portal:focus-visible,.sair:focus-visible{
+  .btn:focus-visible,.portal:focus-visible,.sair:focus-visible{
     outline:2px solid var(--ciano);outline-offset:3px;
   }
   .field{margin-bottom:17px}
@@ -623,14 +602,25 @@
   }
   @keyframes pulsar{0%,100%{opacity:.25;transform:scale(.8)}50%{opacity:1;transform:scale(1.15)}}
 
-  .faixademo{
-    position:sticky;top:0;z-index:61;
-    display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;
-    padding:10px 20px;background:#E0A03C;color:#231704;
-    font-size:13px;font-weight:600;text-align:center;
+  .paradao{
+    min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;padding:40px 24px;gap:0;
   }
-  .faixademo strong{font-weight:800;letter-spacing:.12em;font-size:11.5px}
-  .faixademo a{color:#231704;font-weight:800;text-decoration:underline}
+  .paradao .chip{
+    width:60px;height:60px;border-radius:15px;display:grid;place-items:center;
+    background:var(--navy);border:1px solid var(--edge);margin-bottom:24px;
+  }
+  .paradao h1{font-weight:800;font-size:23px;margin:0 0 14px;letter-spacing:.02em}
+  .paradao .regua{width:96px;margin-bottom:20px}
+  .paradao .texto{color:var(--body);max-width:46ch;font-size:14.5px}
+  .paradao .nota{margin-top:26px;color:var(--aco);font-size:12.5px}
+  .paradao code{
+    background:rgba(96,207,226,.1);color:var(--ciano);
+    padding:2px 7px;border-radius:5px;font-size:12px;
+  }
+
+  .vazio{color:var(--aco);font-size:13px;line-height:1.6;padding:16px 4px;max-width:62ch}
+  .vazio code{background:rgba(96,207,226,.1);color:var(--ciano);padding:1px 6px;border-radius:4px;font-size:12px}
 
   /* ---------- toast ---------- */
   .toast{
@@ -661,7 +651,6 @@
 </head>
 <body role="application">
 
-<!-- faixa e barra de demonstração são criadas por JS apenas fora do ambiente conectado -->
 
 <div class="flash" id="flash"></div>
 
@@ -791,8 +780,8 @@
       <span class="nm"><b>SHAAR</b><span class="regua"></span><span class="byxpto">by <b>XPTO</b></span></span>
     </div>
     <div class="userchip">
-      <div class="who"><b>Diego Rocha</b><small>diego.rocha@xptoinc.com.br · Super administrador</small></div>
-      <div class="avatar">DR</div>
+      <div class="who"><b class="u-nome"></b><small class="u-mail"></small></div>
+      <div class="avatar u-avatar"></div>
       <button class="sair">Sair</button>
     </div>
   </header>
@@ -854,8 +843,8 @@
       <span class="nm"><b>SHAAR</b><span class="regua"></span><span class="byxpto">by <b>XPTO</b></span></span>
     </div>
     <div class="userchip">
-      <div class="who"><b>Diego Rocha</b><small>diego.rocha@xptoinc.com.br · Administrador</small></div>
-      <div class="avatar">DR</div>
+      <div class="who"><b class="u-nome"></b><small class="u-mail"></small></div>
+      <div class="avatar u-avatar"></div>
       <button class="sair">Sair</button>
     </div>
   </header>
@@ -867,7 +856,7 @@
     <div class="slab">
       <div class="field">
         <label for="inv-email">E-mail do convidado — o link só vale para ele</label>
-        <input id="inv-email" type="email" value="carla@escritorio.adv.br">
+        <input id="inv-email" type="email" placeholder="pessoa@empresa.com.br" autocomplete="off">
       </div>
       <span class="field-label">Aplicações autorizadas e papel em cada uma</span>
       <div id="grant-list"></div>
@@ -886,8 +875,8 @@
     </div>
     <div class="sectionlabel">Convites enviados</div>
     <div>
-      <div class="sentrow"><span class="mail">joao@fornecedor.com.br</span><span class="apps">MANNA</span><span class="st pend">Pendente · expira em 5d</span></div>
-      <div class="sentrow"><span class="mail">paula@auditoria.com.br</span><span class="apps">TETELESTAI · SPHRAGIS</span><span class="st ok">Aceito em 28/08</span></div>
+      <div class="vazio">Nenhum convite emitido ainda. O registro depende das tabelas
+      <code>invites</code> e <code>invite_grants</code>, que ainda não existem na base.</div>
     </div>
   </div>
 </section>
@@ -912,10 +901,10 @@
       </div>
       <h2>Você foi convidado(a)</h2>
       <div class="regua"></div>
-      <div class="who"><b>Diego Rocha</b> (XPTO Inc.) liberou para <b id="inv-mailshow"></b> o acesso a:</div>
+      <div class="who"><b id="inv-quem"></b> liberou para <b id="inv-mailshow"></b> o acesso a:</div>
       <div class="chaves" id="inv-apps"></div>
       <form id="inviteform">
-        <div class="field"><label for="inv-name">Seu nome</label><input id="inv-name" placeholder="Carla Mendes"></div>
+        <div class="field"><label for="inv-name">Seu nome</label><input id="inv-name" placeholder="Nome completo"></div>
         <div class="field"><label for="inv-pw">Crie uma senha</label><input id="inv-pw" type="password" placeholder="••••••••"></div>
         <button class="btn btn-ciano" type="submit">Criar conta e acessar</button>
       </form>
@@ -939,36 +928,11 @@
     MERKAVAH:   { desc:"Aplicação do ecossistema — identidade a definir." },
   };
 
-  const PERSONAS = {
-    ana:   { name:"Ana Beatriz", mail:"ana.beatriz@xptoinc.com.br", kind:"Funcionária XPTO",
-             apps:{ TETELESTAI:"Admin", JIREH:"Operadora", TIKKUN:"Operadora", MANNA:"Leitura", SPHRAGIS:"Gestora" } },
-    bruno: { name:"Bruno Lima", mail:"bruno@parceiro.com.br", kind:"Terceiro · Parceiro",
-             apps:{ FAITH:"Consultor", SPHRAGIS:"Signatário" } },
-    carla: { name:"Carla Mendes", mail:"carla@escritorio.adv.br", kind:"Terceira · Jurídico",
-             apps:{ SPHRAGIS:"Signatária" } },
-    diego: { name:"Diego Rocha", mail:"diego.rocha@xptoinc.com.br", kind:"Super administrador",
-             super:true,
-             apps:{ TETELESTAI:"Admin", JIREH:"Admin", FAITH:"Admin", TIKKUN:"Admin",
-                    MANNA:"Admin", BNYISRAEL:"Admin", SPHRAGIS:"Admin", MERKAVAH:"Admin" } },
-  };
+  // Diretório do Quadro de Acessos, preenchido por shaar_quadro().
+  const DIRETORIO = [];
 
-  // Base de acessos que o super admin administra no Quadro.
-  const DIRETORIO = [
-    { nome:"Ana Beatriz",  mail:"ana.beatriz@xptoinc.com.br",  tipo:"Funcionária",
-      apps:{ TETELESTAI:"Admin", JIREH:"Operador(a)", TIKKUN:"Operador(a)", MANNA:"Leitura", SPHRAGIS:"Gestor(a)" } },
-    { nome:"Diego Rocha",  mail:"diego.rocha@xptoinc.com.br",  tipo:"Super admin",
-      apps:Object.fromEntries(Object.keys(APPS).map(k => [k, "Admin"])) },
-    { nome:"Marcos Antunes", mail:"marcos.antunes@xptoinc.com.br", tipo:"Funcionário",
-      apps:{ TETELESTAI:"Operador(a)", MANNA:"Operador(a)", MERKAVAH:"Leitura" } },
-    { nome:"Renata Vilas",  mail:"renata.vilas@xptoinc.com.br", tipo:"Funcionária",
-      apps:{ BNYISRAEL:"Gestor(a)", TETELESTAI:"Leitura" } },
-    { nome:"Bruno Lima",   mail:"bruno@parceiro.com.br",       tipo:"Terceiro",
-      apps:{ FAITH:"Operador(a)", SPHRAGIS:"Signatário(a)" } },
-    { nome:"Carla Mendes", mail:"carla@escritorio.adv.br",     tipo:"Terceira",
-      apps:{ SPHRAGIS:"Signatário(a)" } },
-    { nome:"Paula Freitas", mail:"paula@auditoria.com.br",     tipo:"Terceira",
-      apps:{ TETELESTAI:"Leitura", SPHRAGIS:"Leitura" } },
-  ];
+  // Quem está autenticado nesta sessão.
+  let usuario = null;
 
   const $ = (id) => document.getElementById(id);
   const appName = (k) => APPS[k].name || k;
@@ -995,7 +959,6 @@
     </span>
     <span class="keystone">${mark(key, 23)}</span>`;
 
-  let current = "ana";
   let timer = null;
   const screens = ["screen-login","screen-hub","screen-direto","screen-admin","screen-convite","screen-quadro"];
   function show(id){
@@ -1007,7 +970,6 @@
     }
   }
 
-  // (a barra de personas é montada por montarDemonstracao, com os seus próprios listeners)
 
 
   function route(p){
@@ -1028,11 +990,6 @@
     if (lock) return;
     lock = true;
     $("login-erro").hidden = true;
-
-    if (!AO_VIVO){                       // demonstração, sem base
-      animarEntrada(() => route(PERSONAS[current]));
-      return;
-    }
 
     const email = $("em").value.trim(), senha = $("pw").value;
     if (!email || !senha){
@@ -1058,14 +1015,13 @@
   // SSO XPTO: entra pelo Entra ID quando o provedor estiver registrado no
   // GoTrue. A autorizacao continua vindo da base do TETELESTAI.
   $("ssobtn").addEventListener("click", () => {
-    if (!AO_VIVO){ afterLogin(); return; }
     const volta = encodeURIComponent(window.location.origin + window.location.pathname);
     window.location.href = `${CFG.url}/auth/v1/authorize?provider=azure&redirect_to=${volta}`;
   });
 
   // volta do SSO: o token chega no fragmento da URL
   async function absorverRetornoSSO(){
-    if (!AO_VIVO || !window.location.hash.includes("access_token")) return false;
+    if (!window.location.hash.includes("access_token")) return false;
     const p = new URLSearchParams(window.location.hash.slice(1));
     const token = p.get("access_token");
     history.replaceState(null, "", window.location.pathname);
@@ -1079,7 +1035,7 @@
       absorverCatalogo(linhas);
       const pessoa = pessoaDeLinhas(linhas, (linhas[0] || {}).email || "");
       guardarSessao({ token, refresh: p.get("refresh_token"), email: pessoa.mail });
-      PERSONAS.aovivo = pessoa; current = "aovivo";
+      usuario = pessoa;
       route(pessoa);
       return true;
     } catch (err) {
@@ -1089,7 +1045,8 @@
   }
   document.querySelectorAll(".sair").forEach(b => b.addEventListener("click", () => {
     limparSessao();
-    if (AO_VIVO){ $("em").value = ""; $("pw").value = ""; $("login-erro").hidden = true; }
+    usuario = null;
+    $("em").value = ""; $("pw").value = ""; $("login-erro").hidden = true;
     show("screen-login");
   }));
 
@@ -1114,10 +1071,21 @@
     return b;
   }
 
-  function salao(p, mine){
+  // o mesmo cabeçalho aparece em todas as telas internas
+  function pintarUsuario(p){
+    const iniciais = p.name.split(" ").filter(Boolean).map(w => w[0]).slice(0,2).join("").toUpperCase();
     $("u-name").textContent = p.name;
     $("u-mail").textContent = `${p.mail} · ${p.kind}`;
-    $("u-avatar").textContent = p.name.split(" ").map(w => w[0]).slice(0,2).join("");
+    $("u-avatar").textContent = iniciais;
+    document.querySelectorAll(".u-nome").forEach(e => e.textContent = p.name);
+    document.querySelectorAll(".u-mail").forEach(e => e.textContent = `${p.mail} · ${p.kind}`);
+    document.querySelectorAll(".u-avatar").forEach(e => e.textContent = iniciais);
+    const quem = $("inv-quem");
+    if (quem) quem.textContent = p.name;
+  }
+
+  function salao(p, mine){
+    pintarUsuario(p);
     const h = new Date().getHours();
     $("hello-line").textContent = `${h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite"}, ${p.name.split(" ")[0]}`;
     $("hello-sub").textContent = `${mine.length} ${mine.length === 1 ? "portão aberto" : "portões abertos"} para você.`;
@@ -1163,11 +1131,7 @@
     });
     if (!Object.keys(g).length){ toast("Selecione ao menos uma aplicação para o convite."); return; }
     grants = g;
-    const token = Array.from(crypto.getRandomValues(new Uint8Array(12)), b => b.toString(16).padStart(2,"0")).join("");
-    $("invlink").textContent = `https://shaar.xpto.com.br/convite/${token}`;
-    $("linkbox").hidden = false;
-    $("openinvite").hidden = false;
-    toast("Link gerado — os acessos já viajam dentro do convite.");
+    toast("Emitir convite exige gravar em invites/invite_grants e uma função de servidor com privilégio. O fluxo está desenhado, mas ainda não conectado.");
   });
   $("copylink").addEventListener("click", () => toast("Link copiado."));
 
@@ -1186,7 +1150,7 @@
   $("inviteform").addEventListener("submit", e => {
     e.preventDefault();
     route({
-      name: $("inv-name").value.trim() || "Carla Mendes",
+      name: $("inv-name").value.trim() || "Convidado(a)",
       mail: $("inv-email").value || "convidado@exemplo.com",
       kind: "Terceiro(a) · Convidado(a)",
       apps: grants,
@@ -1202,7 +1166,7 @@
     { id:"screen-admin",  rotulo:"Convites" },
   ];
   function montarNav(ativa){
-    const ehSuper = PERSONAS[current] && PERSONAS[current].super;
+    const ehSuper = Boolean(usuario && usuario.super);
     document.querySelectorAll(".navslot").forEach(nav => {
       nav.hidden = !ehSuper;
       if (!ehSuper) return;
@@ -1211,7 +1175,7 @@
       ).join("") + `<span class="selo">Super admin</span>`;
       nav.querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
         const destino = b.dataset.goto;
-        if (destino === "screen-hub")   { const p = PERSONAS[current]; salao(p, Object.keys(p.apps)); }
+        if (destino === "screen-hub")   { salao(usuario, Object.keys(usuario.apps)); }
         if (destino === "screen-quadro"){ carregarQuadroReal().then(() => { renderQuadro(); show("screen-quadro"); }); }
         if (destino === "screen-admin") { renderAdmin();  show("screen-admin");  }
         montarNav(destino);
@@ -1223,7 +1187,6 @@
 
   // Quadro alimentado pela base: shaar_quadro() so responde a nivel 100.
   async function carregarQuadroReal(){
-    if (!AO_VIVO) return false;
     const sessao = lerSessao();
     if (!sessao || !sessao.token) return false;
     try {
@@ -1321,20 +1284,8 @@
   document.addEventListener("keydown", e => { if (e.key === "Escape") fecharGaveta(); });
 
   const SEM_ESCRITA = "Conceder e revogar exige uma função de servidor com privilégio — cada aplicação guarda a autorização na sua própria tabela. Por enquanto o Quadro é de leitura.";
-  $("g-salvar").addEventListener("click", () => {
-    if (AO_VIVO){ fecharGaveta(); toast(SEM_ESCRITA); return; }
-    const pes = DIRETORIO[alvo.pessoa];
-    pes.apps[alvo.app] = $("g-papel").value;
-    fecharGaveta(); renderQuadro();
-    toast(`${appName(alvo.app)} aberto para ${pes.nome.split(" ")[0]} como ${pes.apps[alvo.app]}.`);
-  });
-  $("g-revogar").addEventListener("click", () => {
-    if (AO_VIVO){ fecharGaveta(); toast(SEM_ESCRITA); return; }
-    const pes = DIRETORIO[alvo.pessoa];
-    delete pes.apps[alvo.app];
-    fecharGaveta(); renderQuadro();
-    toast(`Acesso de ${pes.nome.split(" ")[0]} ao ${appName(alvo.app)} revogado.`);
-  });
+  $("g-salvar").addEventListener("click", () => { fecharGaveta(); toast(SEM_ESCRITA); });
+  $("g-revogar").addEventListener("click", () => { fecharGaveta(); toast(SEM_ESCRITA); });
 
   // ==================================================================
   // BASE REAL — Supabase do ecossistema (api.xptoinc.com.br)
@@ -1343,8 +1294,7 @@
   // A configuracao e gravada dentro deste HTML no momento do deploy.
   // Sem requisicao separada: nao ha cache, CSP nem MIME que possam falhar.
   const CFG = window.SHAAR_CONFIG || {};
-  const AO_VIVO = Boolean(CFG.url && CFG.anonKey);
-  const MOTIVO_DEMO = AO_VIVO ? "" : "esta cópia foi publicada sem as credenciais da base";
+  const CONFIGURADO = Boolean(CFG.url && CFG.anonKey);
   const SESSAO = "shaar.sessao";
 
   const guardarSessao = (s) => { try { sessionStorage.setItem(SESSAO, JSON.stringify(s)); } catch (e) {} };
@@ -1422,8 +1372,7 @@
     absorverCatalogo(linhas);
     const pessoa = pessoaDeLinhas(linhas, email);
     guardarSessao({ token: sessao.access_token, refresh: sessao.refresh_token, email });
-    PERSONAS.aovivo = pessoa;
-    current = "aovivo";
+    usuario = pessoa;
     return pessoa;
   }
 
@@ -1435,8 +1384,8 @@
   // abrir de verdade a aplicacao escolhida
   function abrirApp(key){
     const url = (APPS[key] || {}).url;
-    if (AO_VIVO && url){ window.location.href = url; return true; }
-    toast(`Abrindo ${appName(key)}… (demonstração — iria para ${url || key.toLowerCase() + ".xptoinc.com.br"})`);
+    if (url){ window.location.href = url; return true; }
+    toast(`${appName(key)} ainda não tem endereço cadastrado no catálogo.`);
     return false;
   }
 
@@ -1448,49 +1397,30 @@
     toastTimer = setTimeout(() => t.classList.remove("show"), 3000);
   }
 
-  // Fora do ambiente conectado, a interface de demonstração é criada aqui —
-  // nunca fica no HTML, para que leitores de página não extraiam nomes
-  // fictícios como se fossem conteúdo real.
-  function montarDemonstracao(){
-    const faixa = document.createElement("div");
-    faixa.className = "faixademo";
-    faixa.innerHTML = `<strong>AMBIENTE DE DEMONSTRAÇÃO</strong>
-      <span>Dados fictícios, sem conexão com a base${MOTIVO_DEMO ? " — " + MOTIVO_DEMO : ""}.</span>
-      <a href="https://shaar.xptoinc.com.br">Abrir o SHAAR real →</a>`;
-
-    const barra = document.createElement("div");
-    barra.className = "demobar";
-    barra.innerHTML = `<span class="tag">Demonstração</span>
-      <span class="hint">Personas fictícias:</span>` +
-      Object.entries(PERSONAS).map(([k, p]) =>
-        `<button class="persona" data-p="${k}"><b>${p.name.split(" ")[0]}</b> <small>· ${p.kind}</small></button>`
-      ).join("");
-
-    document.body.insertBefore(barra, document.body.firstChild);
-    document.body.insertBefore(faixa, document.body.firstChild);
-
-    barra.querySelectorAll(".persona").forEach(btn => {
-      btn.addEventListener("click", () => {
-        current = btn.dataset.p;
-        barra.querySelectorAll(".persona").forEach(b => b.classList.toggle("active", b === btn));
-        const p = PERSONAS[current];
-        $("em").value = p.mail; $("pw").value = "demo-senha";
-        show("screen-login");
-      });
-    });
-    barra.querySelector('.persona[data-p="ana"]').classList.add("active");
-    $("em").value = PERSONAS.ana.mail;
-    $("pw").value = "demo-senha";
+  // Uma publicacao sem credenciais e defeito de deploy, nao um modo de uso.
+  // Em vez de inventar dados, a aplicacao diz o que houve e para.
+  function falhaDeConfiguracao(){
+    document.body.innerHTML = `
+      <div class="paradao">
+        <span class="chip" aria-hidden="true">
+          <svg width="30" height="30" viewBox="0 0 48 48">
+            <path d="M11 13 L25 24 L11 35" fill="none" stroke="#60CFE2" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M37 13 L23 24 L37 35" fill="none" stroke="#60CFE2" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
+        <h1>SHAAR indisponível</h1>
+        <div class="regua"></div>
+        <div class="texto">Esta publicação subiu sem as credenciais da base do ecossistema.
+        Nenhum acesso pode ser verificado até que ela seja republicada corretamente.</div>
+        <div class="nota">Equipe técnica: publique com <code>SUPABASE_ANON_KEY</code> definida.</div>
+      </div>`;
   }
 
   // ==================================================================
   // INICIALIZACAO
   // ==================================================================
   (async function iniciar(){
-    if (!AO_VIVO){
-      montarDemonstracao();
-      return;
-    }
+    if (!CONFIGURADO){ falhaDeConfiguracao(); return; }
     // volta do SSO tem prioridade
     if (await absorverRetornoSSO()) return;
 
@@ -1502,7 +1432,7 @@
         if (linhas && linhas.length){
           absorverCatalogo(linhas);
           const pessoa = pessoaDeLinhas(linhas, sessao.email || "");
-          PERSONAS.aovivo = pessoa; current = "aovivo";
+          usuario = pessoa;
           route(pessoa);
           return;
         }

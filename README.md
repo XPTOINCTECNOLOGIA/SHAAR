@@ -12,9 +12,10 @@ independentes quanto a autorização de uso.
 
 ## Estado
 
-Mockup navegável das cinco telas (acesso, painel, acesso direto, convite e aceite), na
-identidade do **Brand Book XPTO v3.0**, com as logomarcas oficiais de cada aplicação.
-A implementação começa a partir dele.
+Em produção. Login contra a base do ecossistema, catálogo e permissões lidos do banco,
+redirecionamento real para cada aplicação. O Quadro de Acessos do super administrador
+é de leitura — conceder e revogar dependem de uma função de servidor com privilégio,
+porque cada aplicação guarda a autorização na sua própria tabela.
 
 ```
 site/     o mockup — HTML estático, sem build
@@ -24,10 +25,11 @@ scripts/  publicação no Azure pela CLI
 
 ## No ar
 
-| Ambiente | Endereço | Acesso |
-|---|---|---|
-| **Azure** (oficial) | https://blue-sea-07ebdbc0f.6.azurestaticapps.net | Entra ID + convite |
-| **GitHub Pages** (vitrine) | https://xptoinc.github.io/SHAAR/ | Aberto |
+**https://shaar.xptoinc.com.br**
+
+Autentica na base do TETELESTAI (`api.xptoinc.com.br`) e mostra as aplicações que
+cada pessoa realmente pode abrir. Não existe modo de demonstração: uma publicação
+sem credenciais para e diz o que houve, em vez de inventar dados.
 
 - **Arquitetura e regras de produto:** [`ARQUITETURA.md`](ARQUITETURA.md)
 - **Como publicar:** [`DEPLOY.md`](DEPLOY.md)

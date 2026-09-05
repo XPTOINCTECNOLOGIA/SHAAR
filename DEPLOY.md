@@ -1,11 +1,12 @@
 # SHAAR — publicação
 
-O SHAAR vive em dois endereços, com propósitos diferentes.
 
-| Ambiente | Endereço | Acesso | Publica |
-|---|---|---|---|
-| **Azure** (oficial) | https://blue-sea-07ebdbc0f.6.azurestaticapps.net | Fechado — Entra ID + convite | Pela CLI, sob demanda |
-| **GitHub Pages** (vitrine) | https://xptoinc.github.io/SHAAR/ | Aberto | Sozinho, a cada push |
+
+**https://shaar.xptoinc.com.br** — publicado pela CLI, sob demanda.
+
+A autenticação é da própria aplicação, contra a base do TETELESTAI. O Static Web App
+não impõe gate próprio: a página inicial é uma tela de login e não há conteúdo a
+proteger antes dela.
 
 ---
 
@@ -98,12 +99,6 @@ E acrescente ao `site/staticwebapp.config.json`:
 az staticwebapp hostname set -n swa-shaar -g rg-xpto-plataforma \
   --hostname shaar.xptoinc.com.br
 ```
-
-## GitHub Pages — a vitrine
-
-O workflow `.github/workflows/github-pages.yml` publica `site/` a cada push em
-`main`. Serve para mostrar o mockup sem exigir login. Como é público, não deve
-receber dado real — quando o SHAAR passar a ler concessões de verdade, desligue-o.
 
 ## Infraestrutura como código
 
