@@ -90,6 +90,40 @@ comment on view public.shaar_user_apps is
   'Leitura agregada: quais aplicações cada pessoa pode abrir e com que papel. '
   'Não concede nada — apenas reflete as autorizações que já existem em cada aplicação.';
 
+-- Identidade do requisitante.
+--
+-- A autenticação tem dois caminhos e a resolução precisa servir aos dois:
+--   Entra ID  — quem existe no tenant entra por lá; chega o e-mail no claim.
+--   Credencial local — terceiros e quem não está no Entra.
+--
+-- Em ambos os casos a pessoa é a MESMA linha de public.users. O e-mail é a
+-- chave que une os dois caminhos; auth_user_id continua valendo para quem
+-- autenticou pelo Supabase Auth.
+create or replace function public.shaar_usuario_atual()
+returns bigint
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select u.id
+    from public.users u
+   where u.active and not u.blocked
+     and (
+          u.auth_user_id = auth.uid()
+       or lower(u.email) = lower(coalesce(
+            nullif(current_setting('request.jwt.claims', true)::jsonb ->> 'email', ''),
+            nullif(current_setting('request.jwt.claims', true)::jsonb
+                     -> 'user_metadata' ->> 'email', ''),
+            ''))
+     )
+   limit 1;
+$$;
+
+comment on function public.shaar_usuario_atual is
+  'Resolve quem esta pedindo, venha de Entra ID ou de credencial local. '
+  'O e-mail e a chave comum aos dois caminhos de autenticacao.';
+
 -- O hub consulta apenas as próprias linhas. A regra "o que não é autorizado
 -- não aparece" fica garantida no banco, não no front.
 create or replace function public.shaar_minhas_apps()
@@ -101,12 +135,15 @@ set search_path = public
 as $$
   select *
     from public.shaar_user_apps
-   where user_id = (select id from public.users where auth_user_id = auth.uid())
+   where user_id = public.shaar_usuario_atual()
    order by sort_order;
 $$;
 
 comment on function public.shaar_minhas_apps is
-  'Aplicações que o usuário autenticado pode abrir. Base do painel do SHAAR.';
+  'Aplicações que o usuário autenticado pode abrir. Base do painel do SHAAR. '
+  'A autorizacao vem sempre da base do TETELESTAI — o Entra ID autentica, nunca autoriza.';
 
+revoke all on function public.shaar_usuario_atual() from public;
 revoke all on function public.shaar_minhas_apps() from public;
+grant execute on function public.shaar_usuario_atual() to authenticated;
 grant execute on function public.shaar_minhas_apps() to authenticated;

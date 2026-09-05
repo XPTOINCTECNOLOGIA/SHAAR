@@ -7,6 +7,9 @@ central e vê apenas as microaplicações que tem direito de acessar.
 
 1. **Uma conta para tudo.** A base de usuários é a do **TETELESTAI** — `public.users`.
    O SHAAR não tem base própria e não cria usuário.
+1b. **Entra ID autentica; a base do TETELESTAI autoriza.** Quem existe na base
+   *e também* no Entra ID entra pelo Entra ID. Estar no Entra não concede acesso
+   nenhum, e não estar não retira o que a base já concedeu.
 2. **Autorização é por aplicação.** Cada microaplicação continua dona da sua
    autorização. O SHAAR decide apenas *se* a pessoa entra, nunca *o que ela faz lá*.
 3. **Uma aplicação → entra direto.** Sem painel intermediário.
@@ -18,9 +21,12 @@ central e vê apenas as microaplicações que tem direito de acessar.
 
 ## A base real (levantada no ambiente, não suposta)
 
-Todo o ecossistema vive num **único projeto Supabase** (`svnfifxiqvztcwegayos`,
-PostgreSQL 17). As tabelas são prefixadas por aplicação; o núcleo sem prefixo é o
-TETELESTAI.
+Todo o ecossistema vive num **único banco Supabase**, hoje auto-hospedado no Azure
+(VM `vm-supabase`, servido em `api.xptoinc.com.br`). As tabelas são prefixadas por
+aplicação; o núcleo sem prefixo é o TETELESTAI.
+
+> O levantamento de estrutura abaixo foi feito no projeto Supabase anterior, antes da
+> migração. O esquema é o mesmo; o endereço mudou.
 
 ### Identidade — `public.users`
 
@@ -63,17 +69,27 @@ Só duas coisas, ambas em `db/`:
 A função `shaar_minhas_apps()` devolve apenas as linhas do próprio usuário — é assim
 que a regra nº 5 fica garantida no servidor.
 
-## Autenticação
+## Autenticação — dois caminhos, uma identidade
 
-O SHAAR autentica contra a base do TETELESTAI. Duas opções, a definir:
+A autorização **vem sempre da base do TETELESTAI**. O que muda é como a pessoa prova
+quem é:
 
-- **Reaproveitar o Supabase Auth** do ecossistema (`auth_user_id` já liga
-  `public.users` ao usuário autenticado) — caminho mais curto e coerente.
-- **Delegar ao TETELESTAI** via redirect e devolver uma sessão ao hub — mais próximo
-  de um SSO clássico, mais trabalho.
+| Caminho | Quem usa | Como |
+|---|---|---|
+| **Entra ID** | Quem existe na base **e** no tenant XPTO | SSO corporativo. O Static Web App entrega o e-mail no claim. |
+| **Credencial local** | Terceiros e quem não está no Entra | `public.user_local_credentials`, como hoje (41 dos 42 usuários). |
 
-> O gate de **Entra ID** hoje ativo no Static Web App protege apenas o *ambiente de
-> preview*. Não é a autenticação do produto e não deve ser confundida com ela.
+**O Entra ID nunca autoriza.** Estar no tenant não concede aplicação nenhuma; não
+estar não retira o que a base já concedeu. Ele só responde "esta pessoa é quem diz
+ser" — e, para quem tem essa opção, é o caminho preferencial de entrada.
+
+O **e-mail** é a chave que une os dois caminhos: a mesma linha de `public.users`
+serve o funcionário que entrou por SSO e o terceiro que entrou por senha. Quem
+resolve isso é `shaar_usuario_atual()`, que aceita tanto `auth.uid()` quanto o claim
+de e-mail.
+
+A tela de acesso já reflete os dois: o botão **Entrar com SSO XPTO** para quem tem
+Entra, e e-mail + senha para os demais.
 
 ## Achado que merece decisão
 
@@ -87,11 +103,27 @@ praticamente não ocorre no estado atual.
 O Quadro de Acessos do SHAAR torna isso visível de uma vez, e é a ferramenta para
 apertar o que precisar ser apertado.
 
-## Infraestrutura
+## Infraestrutura — levantada no ambiente
 
-| Camada | Onde |
-|---|---|
-| Dados e identidade | Supabase (PostgreSQL 17), projeto único do ecossistema |
-| Hospedagem do hub | Azure Static Web Apps — `swa-shaar`, `rg-xpto-plataforma` |
-| Domínio | `shaar.xptoinc.com.br` (Cloudflare, DNS-only) |
-| Preview | GitHub Pages, aberto, sem dado real |
+Tudo em `rg-xpto-plataforma`, subscription `Azure subscription 1`.
+
+| Camada | Recurso | Onde |
+|---|---|---|
+| Dados e identidade | **Supabase auto-hospedado** na VM `vm-supabase` (Ubuntu 24.04, Standard_E2bds_v5) | brazilsouth |
+| Endpoint da base | `https://api.xptoinc.com.br` → `20.226.86.230` | Cloudflare, DNS-only |
+| PostgreSQL gerenciado | `pg-xpto-plataforma` (PG 15, Burstable B1ms) — provisionado, **sem banco de aplicação** | brazilsouth |
+| Backends próprios | Container Apps `app-tetelestai` e `app-bneiyisrael`, ambiente `cae-xpto` | brazilsouth |
+| Segredos | Key Vault `kv-xpto-ec26a224` | brazilsouth |
+| Hospedagem do hub | Azure Static Web Apps `swa-shaar` | eastus2 |
+| Domínio do hub | `shaar.xptoinc.com.br` | Cloudflare, DNS-only |
+| Preview aberto | GitHub Pages — sem dado real | — |
+
+### Dois pontos que merecem sua atenção
+
+**`pg-xpto-plataforma` está vazio.** O servidor existe e está saudável, mas só tem os
+bancos de sistema (`postgres`, `azure_sys`, `azure_maintenance`). Ou a migração para
+ele não aconteceu, ou ele foi provisionado para um passo futuro. Custa mesmo parado.
+
+**`swa-tetelestai` e `swa-bnei` estão órfãos.** Existem como Static Web Apps, mas os
+domínios `tetelestai.` e `bnei.` apontam para os Container Apps. São provavelmente
+sobra de uma tentativa anterior.
