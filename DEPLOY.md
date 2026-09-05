@@ -1,83 +1,78 @@
-# SHAAR — deploy no Azure Static Web Apps
+# SHAAR — publicação
 
-Site estático, sem build. Três passos para o ambiente existir; depois, todo push publica.
+O SHAAR vive em dois endereços, com propósitos diferentes.
 
-## 1. Criar o recurso
-
-```bash
-az group create -n rg-shaar -l eastus2
-
-az deployment group create \
-  -g rg-shaar \
-  -f infra/main.bicep \
-  -p name=swa-shaar-hub location=eastus2 sku=Standard
-```
-
-Anote o `defaultHostname` da saída.
-
-## 2. Guardar o token de deploy no GitHub
-
-```bash
-az staticwebapp secrets list -n swa-shaar-hub -g rg-shaar \
-  --query "properties.apiKey" -o tsv
-```
-
-Repositório → **Settings → Secrets and variables → Actions** →
-`AZURE_STATIC_WEB_APPS_API_TOKEN`.
-
-## 3. Publicar
-
-O workflow publica a cada push em `main` e também pode ser disparado à mão
-(**Actions → Deploy SHAAR → Run workflow**). Todo PR ganha um ambiente de
-preview próprio, encerrado quando o PR fecha.
+| Ambiente | Endereço | Acesso | Publica |
+|---|---|---|---|
+| **Azure** (oficial) | https://blue-sea-07ebdbc0f.6.azurestaticapps.net | Fechado — Entra ID + convite | Pela CLI, sob demanda |
+| **GitHub Pages** (vitrine) | https://xptoinc.github.io/SHAAR/ | Aberto | Sozinho, a cada push |
 
 ---
 
-## Quem consegue entrar
+## Azure — publicar
 
-O acesso é fechado por padrão, em duas camadas:
+Não há token guardado no GitHub: o deploy usa a sua própria sessão do `az`.
 
-1. **Login** pelo provedor **Microsoft Entra ID pré-configurado** do Static Web Apps —
+```bash
+az login --use-device-code     # só na primeira vez
+./scripts/deploy-azure.sh
+```
+
+Para um ambiente de preview, sem tocar em produção:
+
+```bash
+./scripts/deploy-azure.sh minha-branch
+```
+
+O recurso segue a convenção do ecossistema: `swa-shaar`, no grupo
+`rg-xpto-plataforma`, região East US 2, SKU Free — o mesmo padrão de
+`swa-tetelestai`, `swa-sphragis`, `swa-tikkun` e os demais.
+
+## Azure — quem entra
+
+Duas camadas:
+
+1. **Login** pelo provedor **Entra ID pré-configurado** do Static Web Apps —
    não exige registrar aplicativo no Azure.
-2. **Autorização** pelo papel `preview`: só quem foi convidado enxerga o site.
-   Quem entra sem o papel cai em `/sem-acesso.html`.
+2. **Autorização** pelo papel `preview`. Quem entra sem ele cai em
+   `/sem-acesso.html`.
 
 ### Convidar alguém
 
-Portal do Azure → o Static Web App → **Role management** → **Invite**:
-
-| Campo | Valor |
-|---|---|
-| Authorization provider | Microsoft Entra ID (`aad`) |
-| Invitee details | e-mail da pessoa |
-| Domain | o `defaultHostname` (ou o domínio próprio) |
-| Role | `preview` |
-
-Ou pela CLI:
-
 ```bash
-az staticwebapp users invite -n swa-shaar-hub -g rg-shaar \
+az staticwebapp users invite -n swa-shaar -g rg-xpto-plataforma \
   --authentication-provider aad \
   --user-details pessoa@xptoinc.com.br \
-  --domain <defaultHostname> \
+  --domain blue-sea-07ebdbc0f.6.azurestaticapps.net \
   --roles preview \
   --invitation-expiration-in-hours 168
 ```
 
-> **Atenção:** o provedor pré-configurado aceita login de qualquer conta Microsoft.
-> É o papel `preview` que restringe de fato o acesso — nunca troque
+O comando devolve um link; a pessoa precisa **abrir esse link** para o papel
+valer. Sem isso, o acesso não é concedido.
+
+Ver quem já tem acesso:
+
+```bash
+az staticwebapp users list -n swa-shaar -g rg-xpto-plataforma -o table
+```
+
+> **Atenção:** o provedor pré-configurado aceita login de qualquer conta
+> Microsoft. Quem restringe de fato é o papel `preview` — nunca troque
 > `"allowedRoles": ["preview"]` por `["authenticated"]` achando que basta.
 
 ### Restringir ao tenant da XPTO (produção)
 
-Quando o SHAAR sair do preview, registre um provedor próprio — isso limita o login
-ao tenant e **desativa os provedores pré-configurados**:
+Registre um provedor próprio — isso limita o login ao tenant e **desativa os
+provedores pré-configurados**. Exige SKU **Standard**:
 
 ```bash
-az ad app create --display-name "SHAAR Hub" \
-  --web-redirect-uris "https://<defaultHostname>/.auth/login/aad/callback"
+az staticwebapp update -n swa-shaar -g rg-xpto-plataforma --sku Standard
 
-az staticwebapp appsettings set -n swa-shaar-hub -g rg-shaar \
+az ad app create --display-name "SHAAR Hub" \
+  --web-redirect-uris "https://<host>/.auth/login/aad/callback"
+
+az staticwebapp appsettings set -n swa-shaar -g rg-xpto-plataforma \
   --setting-names AAD_CLIENT_ID=<appId> AAD_CLIENT_SECRET=<secret>
 ```
 
@@ -100,6 +95,23 @@ E acrescente ao `site/staticwebapp.config.json`:
 ## Domínio próprio
 
 ```bash
-az staticwebapp hostname set -n swa-shaar-hub -g rg-shaar \
+az staticwebapp hostname set -n swa-shaar -g rg-xpto-plataforma \
   --hostname shaar.xptoinc.com.br
+```
+
+## GitHub Pages — a vitrine
+
+O workflow `.github/workflows/github-pages.yml` publica `site/` a cada push em
+`main`. Serve para mostrar o mockup sem exigir login. Como é público, não deve
+receber dado real — quando o SHAAR passar a ler concessões de verdade, desligue-o.
+
+## Infraestrutura como código
+
+`infra/main.bicep` descreve o Static Web App. O recurso atual foi criado pela
+CLI seguindo a convenção do ecossistema; o Bicep serve para recriá-lo ou para
+provisionar outros ambientes:
+
+```bash
+az deployment group create -g rg-xpto-plataforma -f infra/main.bicep \
+  -p name=swa-shaar-hml location=eastus2 sku=Free
 ```

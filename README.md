@@ -19,7 +19,15 @@ A implementação começa a partir dele.
 ```
 site/     o mockup — HTML estático, sem build
 infra/    Bicep do Azure Static Web App
+scripts/  publicação no Azure pela CLI
 ```
+
+## No ar
+
+| Ambiente | Endereço | Acesso |
+|---|---|---|
+| **Azure** (oficial) | https://blue-sea-07ebdbc0f.6.azurestaticapps.net | Entra ID + convite |
+| **GitHub Pages** (vitrine) | https://xptoinc.github.io/SHAAR/ | Aberto |
 
 - **Arquitetura e regras de produto:** [`ARQUITETURA.md`](ARQUITETURA.md)
 - **Como publicar:** [`DEPLOY.md`](DEPLOY.md)

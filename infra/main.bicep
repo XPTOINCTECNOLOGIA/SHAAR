@@ -2,15 +2,15 @@
 targetScope = 'resourceGroup'
 
 @description('Nome do recurso Static Web App')
-param name string = 'swa-shaar-hub'
+param name string = 'swa-shaar'
 
 @description('Regiao (SWA tem regioes limitadas: eastus2, centralus, westus2, westeurope, eastasia)')
 @allowed(['eastus2', 'centralus', 'westus2', 'westeurope', 'eastasia'])
 param location string = 'eastus2'
 
-@description('Standard e necessario para provedor Entra ID proprio e dominio customizado')
+@description('Free basta para o provedor Entra pre-configurado; Standard so para provedor proprio')
 @allowed(['Free', 'Standard'])
-param sku string = 'Standard'
+param sku string = 'Free'
 
 param tags object = {
   produto: 'SHAAR'
