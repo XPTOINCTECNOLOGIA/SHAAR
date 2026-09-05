@@ -315,7 +315,7 @@
   @keyframes surge{to{opacity:1}}
   .direto h2{font-weight:800;font-size:clamp(24px,3vw,31px);letter-spacing:.22em;text-indent:.22em;margin:0 0 14px}
   .direto .regua{width:120px;margin:0 auto 18px}
-  .direto p{color:var(--body);margin:0 0 30px;max-width:46ch;font-weight:400}
+  .direto .lead{color:var(--body);margin:0 0 30px;max-width:46ch;font-weight:400}
   .direto small{color:var(--aco);font-size:12.5px}
 
   /* ==================================================================
@@ -659,21 +659,9 @@
   }
 </style>
 </head>
-<body>
+<body role="application">
 
-<div class="faixademo" id="faixademo" hidden>
-  <strong>AMBIENTE DE DEMONSTRAÇÃO</strong>
-  <span>Dados fictícios, sem conexão com a base do ecossistema.</span>
-  <a href="https://shaar.xptoinc.com.br">Abrir o SHAAR real →</a>
-</div>
-<div class="demobar" id="demobar" hidden>
-  <span class="tag">Demonstração</span>
-  <span class="hint">Sem conexão com a base — personas fictícias:</span>
-  <button class="persona" data-p="ana"><b>Ana</b> <small>· funcionária, 5 apps</small></button>
-  <button class="persona" data-p="bruno"><b>Bruno</b> <small>· terceiro, 2 apps</small></button>
-  <button class="persona" data-p="carla"><b>Carla</b> <small>· terceira, 1 app</small></button>
-  <button class="persona" data-p="diego"><b>Diego</b> <small>· super admin</small></button>
-</div>
+<!-- faixa e barra de demonstração são criadas por JS apenas fora do ambiente conectado -->
 
 <div class="flash" id="flash"></div>
 
@@ -727,7 +715,7 @@
 
     <form class="login-form" id="loginform">
       <h2>Entrar</h2>
-      <p class="lead">Use as suas credenciais do ecossistema XPTO — a mesma conta para todas as aplicações.</p>
+      <div class="lead">Use as suas credenciais do ecossistema XPTO — a mesma conta para todas as aplicações.</div>
       <div class="field">
         <label for="em">E-mail</label>
         <input id="em" type="email" autocomplete="username" placeholder="voce@xptoinc.com.br">
@@ -741,8 +729,8 @@
         <svg width="13" height="13" viewBox="0 0 23 23" aria-hidden="true"><rect x="1" y="1" width="10" height="10" fill="#f25022"/><rect x="12" y="1" width="10" height="10" fill="#7fba00"/><rect x="1" y="12" width="10" height="10" fill="#00a4ef"/><rect x="12" y="12" width="10" height="10" fill="#ffb900"/></svg>
         Entrar com SSO XPTO
       </button>
-      <p class="erro" id="login-erro" hidden></p>
-      <p class="fineprint">Esqueceu a senha? <a href="#" onclick="return false">Recuperar acesso</a></p>
+      <div class="erro" id="login-erro" hidden></div>
+      <div class="fineprint">Esqueceu a senha? <a href="#" onclick="return false">Recuperar acesso</a></div>
     </form>
 
     <div class="login-slogan">
@@ -771,12 +759,12 @@
     </div>
   </header>
   <nav class="adminnav navslot" hidden></nav>
-  <main class="hall">
+  <div class="hall">
     <span class="eyebrow">Suas aplicações</span>
     <h2 id="hello-line"></h2>
-    <p class="sub" id="hello-sub"></p>
+    <div class="sub" id="hello-sub"></div>
     <div class="colunata" id="colunata"></div>
-  </main>
+  </div>
 </section>
 
 <!-- =============== ACESSO DIRETO =============== -->
@@ -785,7 +773,7 @@
     <div class="gatewrap" id="d-wrap"></div>
     <h2 id="d-title"></h2>
     <div class="regua"></div>
-    <p id="d-sub"></p>
+    <div class="lead" id="d-sub"></div>
     <small>Você tem acesso a uma aplicação — o SHAAR abre esse portão direto. <a href="#" id="d-cancel">Cancelar</a></small>
   </div>
 </section>
@@ -809,10 +797,10 @@
     </div>
   </header>
   <nav class="adminnav navslot" hidden></nav>
-  <main class="quadro">
+  <div class="quadro">
     <span class="eyebrow">Administração · Acessos</span>
     <h2>Quadro de acessos</h2>
-    <p class="sub">Cada linha é uma pessoa, cada coluna é um portão. Portão aceso, acesso liberado. Clique numa célula para abrir, fechar ou trocar o papel.</p>
+    <div class="sub">Cada linha é uma pessoa, cada coluna é um portão. Portão aceso, acesso liberado. Clique numa célula para abrir, fechar ou trocar o papel.</div>
 
     <div class="filtros">
       <input type="search" id="busca" placeholder="Buscar por nome ou e-mail" aria-label="Buscar pessoa">
@@ -834,14 +822,14 @@
       <span><i class="fechado"></i> portão fechado — sem acesso</span>
       <span>Nada é concedido sozinho: só o que você abrir aqui, ou o que um convite carregar.</span>
     </div>
-  </main>
+  </div>
 </section>
 
 <!-- gaveta de edicao de um acesso -->
 <div class="gaveta" id="gaveta">
   <div class="painel" role="dialog" aria-modal="true" aria-label="Editar acesso">
     <h3 id="g-titulo"></h3>
-    <p class="quem" id="g-quem"></p>
+    <div class="quem" id="g-quem"></div>
     <div class="appnome"><span class="mk" id="g-mk"></span><b id="g-app"></b></div>
     <label class="campo" for="g-papel">Papel nesta aplicação</label>
     <select id="g-papel"></select>
@@ -872,10 +860,10 @@
     </div>
   </header>
   <nav class="adminnav navslot" hidden></nav>
-  <main class="forja">
+  <div class="forja">
     <span class="eyebrow">Administração · Convites</span>
     <h2>Convidar usuário externo</h2>
-    <p class="sub">Marque quais portões este convite abre e com qual papel. Ao criar a conta, o acesso já entra em vigor — nada é concedido depois.</p>
+    <div class="sub">Marque quais portões este convite abre e com qual papel. Ao criar a conta, o acesso já entra em vigor — nada é concedido depois.</div>
     <div class="slab">
       <div class="field">
         <label for="inv-email">E-mail do convidado — o link só vale para ele</label>
@@ -901,7 +889,7 @@
       <div class="sentrow"><span class="mail">joao@fornecedor.com.br</span><span class="apps">MANNA</span><span class="st pend">Pendente · expira em 5d</span></div>
       <div class="sentrow"><span class="mail">paula@auditoria.com.br</span><span class="apps">TETELESTAI · SPHRAGIS</span><span class="st ok">Aceito em 28/08</span></div>
     </div>
-  </main>
+  </div>
 </section>
 
 <!-- =============== ACEITE DO CONVITE =============== -->
@@ -924,14 +912,14 @@
       </div>
       <h2>Você foi convidado(a)</h2>
       <div class="regua"></div>
-      <p class="who"><b>Diego Rocha</b> (XPTO Inc.) liberou para <b id="inv-mailshow"></b> o acesso a:</p>
+      <div class="who"><b>Diego Rocha</b> (XPTO Inc.) liberou para <b id="inv-mailshow"></b> o acesso a:</div>
       <div class="chaves" id="inv-apps"></div>
       <form id="inviteform">
         <div class="field"><label for="inv-name">Seu nome</label><input id="inv-name" placeholder="Carla Mendes"></div>
         <div class="field"><label for="inv-pw">Crie uma senha</label><input id="inv-pw" type="password" placeholder="••••••••"></div>
         <button class="btn btn-ciano" type="submit">Criar conta e acessar</button>
       </form>
-      <p class="fineprint">Já tem conta XPTO? <a href="#" onclick="return false">Entrar e vincular estes acessos</a></p>
+      <div class="fineprint">Já tem conta XPTO? <a href="#" onclick="return false">Entrar e vincular estes acessos</a></div>
     </div>
   </div>
 </section>
@@ -1019,49 +1007,8 @@
     }
   }
 
-  document.querySelectorAll(".persona").forEach(btn => {
-    btn.addEventListener("click", () => {
-      current = btn.dataset.p;
-      document.querySelectorAll(".persona").forEach(b => b.classList.toggle("active", b === btn));
-      const p = PERSONAS[current];
-      $("em").value = p.mail; $("pw").value = "demo-senha";
-      show("screen-login");
-    });
-  });
-  // ==================================================================
-  // INICIALIZACAO
-  // ==================================================================
-  (async function iniciar(){
-    if (!AO_VIVO){
-      const d = $("faixademo").querySelector("span");
-      if (d && MOTIVO_DEMO) d.textContent = `Dados fictícios, sem conexão com a base — ${MOTIVO_DEMO}.`;
-      // sem base configurada: modo demonstracao com personas
-      $("faixademo").hidden = false;
-      $("demobar").hidden = false;
-      document.querySelector('.persona[data-p="ana"]').classList.add("active");
-      $("em").value = PERSONAS.ana.mail;
-      $("pw").value = "demo-senha";
-      return;
-    }
-    // volta do SSO tem prioridade
-    if (await absorverRetornoSSO()) return;
+  // (a barra de personas é montada por montarDemonstracao, com os seus próprios listeners)
 
-    // sessao ainda valida nesta aba
-    const sessao = lerSessao();
-    if (sessao && sessao.token){
-      try {
-        const linhas = await minhasApps(sessao.token);
-        if (linhas && linhas.length){
-          absorverCatalogo(linhas);
-          const pessoa = pessoaDeLinhas(linhas, sessao.email || "");
-          PERSONAS.aovivo = pessoa; current = "aovivo";
-          route(pessoa);
-          return;
-        }
-      } catch (e) { limparSessao(); }
-    }
-    show("screen-login");
-  })();
 
   function route(p){
     const mine = Object.keys(p.apps);
@@ -1500,6 +1447,69 @@
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => t.classList.remove("show"), 3000);
   }
+
+  // Fora do ambiente conectado, a interface de demonstração é criada aqui —
+  // nunca fica no HTML, para que leitores de página não extraiam nomes
+  // fictícios como se fossem conteúdo real.
+  function montarDemonstracao(){
+    const faixa = document.createElement("div");
+    faixa.className = "faixademo";
+    faixa.innerHTML = `<strong>AMBIENTE DE DEMONSTRAÇÃO</strong>
+      <span>Dados fictícios, sem conexão com a base${MOTIVO_DEMO ? " — " + MOTIVO_DEMO : ""}.</span>
+      <a href="https://shaar.xptoinc.com.br">Abrir o SHAAR real →</a>`;
+
+    const barra = document.createElement("div");
+    barra.className = "demobar";
+    barra.innerHTML = `<span class="tag">Demonstração</span>
+      <span class="hint">Personas fictícias:</span>` +
+      Object.entries(PERSONAS).map(([k, p]) =>
+        `<button class="persona" data-p="${k}"><b>${p.name.split(" ")[0]}</b> <small>· ${p.kind}</small></button>`
+      ).join("");
+
+    document.body.insertBefore(barra, document.body.firstChild);
+    document.body.insertBefore(faixa, document.body.firstChild);
+
+    barra.querySelectorAll(".persona").forEach(btn => {
+      btn.addEventListener("click", () => {
+        current = btn.dataset.p;
+        barra.querySelectorAll(".persona").forEach(b => b.classList.toggle("active", b === btn));
+        const p = PERSONAS[current];
+        $("em").value = p.mail; $("pw").value = "demo-senha";
+        show("screen-login");
+      });
+    });
+    barra.querySelector('.persona[data-p="ana"]').classList.add("active");
+    $("em").value = PERSONAS.ana.mail;
+    $("pw").value = "demo-senha";
+  }
+
+  // ==================================================================
+  // INICIALIZACAO
+  // ==================================================================
+  (async function iniciar(){
+    if (!AO_VIVO){
+      montarDemonstracao();
+      return;
+    }
+    // volta do SSO tem prioridade
+    if (await absorverRetornoSSO()) return;
+
+    // sessao ainda valida nesta aba
+    const sessao = lerSessao();
+    if (sessao && sessao.token){
+      try {
+        const linhas = await minhasApps(sessao.token);
+        if (linhas && linhas.length){
+          absorverCatalogo(linhas);
+          const pessoa = pessoaDeLinhas(linhas, sessao.email || "");
+          PERSONAS.aovivo = pessoa; current = "aovivo";
+          route(pessoa);
+          return;
+        }
+      } catch (e) { limparSessao(); }
+    }
+    show("screen-login");
+  })();
 </script>
 
 </body>
