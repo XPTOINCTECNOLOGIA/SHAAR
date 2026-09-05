@@ -5,58 +5,93 @@ central e vê apenas as microaplicações que tem direito de acessar.
 
 ## Regras de produto
 
-1. **Uma conta para tudo.** Funcionários XPTO e terceiros usam a mesma identidade.
-2. **Autorização é por aplicação.** Cada microaplicação é independente quanto a permissão
-   de uso; o SHAAR decide apenas *se* o usuário entra, nunca *o que ele faz lá dentro*.
+1. **Uma conta para tudo.** A base de usuários é a do **TETELESTAI** — `public.users`.
+   O SHAAR não tem base própria e não cria usuário.
+2. **Autorização é por aplicação.** Cada microaplicação continua dona da sua
+   autorização. O SHAAR decide apenas *se* a pessoa entra, nunca *o que ela faz lá*.
 3. **Uma aplicação → entra direto.** Sem painel intermediário.
 4. **Duas ou mais → painel de escolha.**
-5. **O que não é autorizado não aparece.** Nada de aplicação esmaecida nem botão de
-   "solicitar acesso": o usuário não descobre a existência do que não lhe foi concedido.
-   Isso vale também no backend — a consulta ao catálogo já filtra por concessão.
+5. **O que não é autorizado não aparece.** Nem esmaecido, nem com botão de solicitar.
+   A filtragem acontece no banco, não no front.
 6. **Convite carrega o acesso.** O administrador escolhe as aplicações e os papéis
    *antes* de gerar o link; ao aceitar, o acesso já nasce em vigor.
 
-## Alicerce (definido)
+## A base real (levantada no ambiente, não suposta)
 
-| Camada | Escolha |
+Todo o ecossistema vive num **único projeto Supabase** (`svnfifxiqvztcwegayos`,
+PostgreSQL 17). As tabelas são prefixadas por aplicação; o núcleo sem prefixo é o
+TETELESTAI.
+
+### Identidade — `public.users`
+
+42 pessoas, 36 ativas. Colunas relevantes: `id` (bigint), `auth_user_id` (uuid do
+Supabase Auth), `email`, `full_name`, `profile_id`, `active`, `blocked`,
+`user_kind` (`real` / `test`), `login_method`.
+
+**41 dos 42 usuários têm `login_method = 'local'`** — a autenticação é por credencial
+local (`public.user_local_credentials`), não por provedor externo. Qualquer desenho
+que pressuponha Entra ID como base de identidade está errado.
+
+### Autorização — dois mecanismos convivendo
+
+| Aplicação | Como autoriza hoje | Pessoas |
+|---|---|---|
+| TETELESTAI | `profiles` (perfil ativo) | 36 |
+| MANNA | RBAC central, `permissions.module = 'MANNA'` | via perfil |
+| FAITH | RBAC central, `permissions.module = 'oportunidades'` | via perfil |
+| JIREH | `jireh_user_permissions` | 2 |
+| TIKKUN | `tikkun_user_roles` | 12 |
+| BNEI YISRAEL | `bnei_user_roles` | 41 |
+| MERKAVAH | `merkavah_memberships` (ativos) | 41 |
+| SPHRAGIS | `sphragis_perfis_assinatura` | 3 |
+
+Uns usam o RBAC central do TETELESTAI (`profiles` → `profile_permissions` →
+`permissions.module`); outros têm tabela própria. **O SHAAR respeita os dois** e não
+substitui nenhum.
+
+## O que o SHAAR acrescenta
+
+Só duas coisas, ambas em `db/`:
+
+- **`shaar_apps`** — o catálogo. É o que não existe hoje: uma lista de quais
+  aplicações existem, como se chamam e onde ficam. Aplicação nova entra como linha;
+  o hub se atualiza sem deploy.
+- **`shaar_user_apps`** — uma *view* de leitura que agrega as autorizações já
+  existentes e responde: quais aplicações esta pessoa abre, e com que papel. Não
+  concede nada. Acrescentar aplicação = acrescentar um bloco no `union`.
+
+A função `shaar_minhas_apps()` devolve apenas as linhas do próprio usuário — é assim
+que a regra nº 5 fica garantida no servidor.
+
+## Autenticação
+
+O SHAAR autentica contra a base do TETELESTAI. Duas opções, a definir:
+
+- **Reaproveitar o Supabase Auth** do ecossistema (`auth_user_id` já liga
+  `public.users` ao usuário autenticado) — caminho mais curto e coerente.
+- **Delegar ao TETELESTAI** via redirect e devolver uma sessão ao hub — mais próximo
+  de um SSO clássico, mais trabalho.
+
+> O gate de **Entra ID** hoje ativo no Static Web App protege apenas o *ambiente de
+> preview*. Não é a autenticação do produto e não deve ser confundida com ela.
+
+## Achado que merece decisão
+
+Nenhuma pessoa ativa tem menos de **cinco** aplicações: 23 têm cinco, 12 têm seis e
+1 tem sete. BNEI e MERKAVAH concedem acesso a 41 dos 42 usuários.
+
+Ou seja: **hoje o acesso é concedido de forma ampla, quase por padrão.** O caso
+"usuário com uma só aplicação" — que motivou a regra do redirecionamento direto —
+praticamente não ocorre no estado atual.
+
+O Quadro de Acessos do SHAAR torna isso visível de uma vez, e é a ferramenta para
+apertar o que precisar ser apertado.
+
+## Infraestrutura
+
+| Camada | Onde |
 |---|---|
-| Identidade | **Microsoft Entra ID** — funcionários no tenant; terceiros como convidados **B2B** |
-| Hospedagem | **Azure Static Web Apps** (Standard) com provedor Entra ID |
-| CI/CD | **GitHub Actions** → `Azure/static-web-apps-deploy` |
-| Infra | **Bicep** (`infra/main.bicep`) |
-| Segredos | **Azure Key Vault** |
-| APIs | **Azure Functions** (deploy junto ao SWA, `api_location`) |
-
-Entra ID resolve nativamente a exigência nº 1: o tenant é a base única de usuários, e o
-convite B2B é o mecanismo oficial para terceiros — sem senha própria, sem base paralela.
-
-## Em aberto
-
-- **Banco de dados**: Azure SQL vs. PostgreSQL Flexible Server vs. Cosmos DB.
-  A modelagem abaixo é relacional e roda em qualquer um dos dois primeiros sem mudança.
-
-## Modelo de dados (independente do banco escolhido)
-
-- `apps` — catálogo: código, nome, descrição, URL, ícone, ativa/inativa.
-  Aplicação nova entra como linha; o hub renderiza sem deploy.
-- `app_memberships` — `user_object_id` (o oid do Entra), `app_id`, `role`, `status`.
-- `invites` — `token_hash` (só o hash; o token vive apenas no link), `email`,
-  `invited_by`, `status`, `expires_at`, `accepted_by`, `accepted_at`.
-- `invite_grants` — `invite_id`, `app_id`, `role`. É o carimbo de acessos do convite.
-
-O aceite roda numa Function com identidade gerenciada (nunca no cliente): valida o token
-(hash, validade, e-mail), dispara o convite B2B ou vincula o usuário existente, copia
-`invite_grants` → `app_memberships` e encerra o convite — tudo em uma transação.
-
-## Filtragem de aplicações
-
-O SWA resolve papéis por uma função `GetRoles` no login: ela lê as `app_memberships` do
-usuário e devolve os papéis. As rotas de cada aplicação ficam restritas a esses papéis,
-e o catálogo devolvido ao front já vem filtrado — a invisibilidade da regra nº 5 é
-garantida no servidor, não no CSS.
-
-## SSO entre as aplicações
-
-Todas as microaplicações usam o mesmo registro de aplicativo no Entra ID (ou registros
-distintos no mesmo tenant, com consentimento prévio). O usuário autentica uma vez e
-atravessa os portões sem novo login.
+| Dados e identidade | Supabase (PostgreSQL 17), projeto único do ecossistema |
+| Hospedagem do hub | Azure Static Web Apps — `swa-shaar`, `rg-xpto-plataforma` |
+| Domínio | `shaar.xptoinc.com.br` (Cloudflare, DNS-only) |
+| Preview | GitHub Pages, aberto, sem dado real |
