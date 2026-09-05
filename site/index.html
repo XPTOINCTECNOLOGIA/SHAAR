@@ -1,5 +1,13 @@
-<title>SHAAR</title>
-<script src="config.js"></script>
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SHAAR — Hub de acesso · XPTO</title>
+<meta name="description" content="Hub de acesso do ecossistema XPTO: uma conta, as aplicações autorizadas para você.">
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;600;700;800&display=swap">
 <style>
   /*  SHAAR by XPTO — hub de acesso do ecossistema
@@ -648,6 +656,8 @@
     .g-glifo{display:none}
   }
 </style>
+</head>
+<body>
 
 <div class="faixademo" id="faixademo" hidden>
   <strong>AMBIENTE DE DEMONSTRAÇÃO</strong>
@@ -1020,7 +1030,10 @@
   // INICIALIZACAO
   // ==================================================================
   (async function iniciar(){
+    await carregarConfig();
     if (!AO_VIVO){
+      const d = $("faixademo").querySelector("span");
+      if (d && MOTIVO_DEMO) d.textContent = `Dados fictícios, sem conexão com a base — ${MOTIVO_DEMO}.`;
       // sem base configurada: modo demonstracao com personas
       $("faixademo").hidden = false;
       $("demobar").hidden = false;
@@ -1379,8 +1392,21 @@
   // BASE REAL — Supabase do ecossistema (api.xptoinc.com.br)
   // A configuracao vem de config.js, gerado no deploy. Sem chave no repositorio.
   // ==================================================================
-  const CFG = window.SHAAR_CONFIG || {};
-  const AO_VIVO = Boolean(CFG.url && CFG.anonKey);
+  let CFG = {};
+  let AO_VIVO = false;
+  let MOTIVO_DEMO = "";
+
+  async function carregarConfig(){
+    try {
+      const r = await fetch("config.json", { cache: "no-store" });
+      if (!r.ok){ MOTIVO_DEMO = `config.json respondeu ${r.status}`; return; }
+      const c = await r.json();
+      if (!c || !c.url || !c.anonKey){ MOTIVO_DEMO = "config.json sem url ou chave"; return; }
+      CFG = c; AO_VIVO = true;
+    } catch (e) {
+      MOTIVO_DEMO = e.message || "config.json não pôde ser lido";
+    }
+  }
   const SESSAO = "shaar.sessao";
 
   const guardarSessao = (s) => { try { sessionStorage.setItem(SESSAO, JSON.stringify(s)); } catch (e) {} };
@@ -1484,3 +1510,6 @@
     toastTimer = setTimeout(() => t.classList.remove("show"), 3000);
   }
 </script>
+
+</body>
+</html>
