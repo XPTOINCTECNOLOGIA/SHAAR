@@ -425,6 +425,179 @@
   .convite-card form{text-align:left}
   .convite-card .fineprint{color:var(--aco);font-size:12.5px;margin:20px 0 0;text-align:center}
 
+  /* ==================================================================
+     NAVEGACAO DO SUPER ADMIN
+     ================================================================== */
+  .adminnav{
+    display:flex;gap:2px;padding:0 32px;background:var(--navy);
+    border-bottom:1px solid var(--edge-soft);position:relative;z-index:2;
+  }
+  .adminnav button{
+    background:none;border:none;border-bottom:2px solid transparent;
+    color:var(--aco);font-size:12.5px;font-weight:700;letter-spacing:.06em;
+    padding:12px 16px;cursor:pointer;transition:color .18s,border-color .18s;
+  }
+  .adminnav button:hover{color:#fff}
+  .adminnav button.on{color:var(--ciano);border-bottom-color:var(--ciano)}
+  .adminnav .selo{
+    margin-left:auto;align-self:center;font-size:9px;font-weight:800;
+    letter-spacing:.2em;text-transform:uppercase;color:var(--ciano);
+    border:1px solid rgba(96,207,226,.4);border-radius:4px;padding:3px 9px;
+  }
+
+  /* ==================================================================
+     QUADRO DE ACESSOS — pessoas x portoes
+     ================================================================== */
+  .quadro{max-width:1240px;margin:0 auto;padding:40px 32px 72px;position:relative;z-index:1}
+  .quadro .eyebrow{display:block;margin-bottom:9px}
+  .quadro h2{font-weight:800;font-size:clamp(24px,3vw,30px);margin:0 0 6px}
+  .quadro .sub{color:var(--body);margin:0;font-size:14px;font-weight:400}
+
+  .filtros{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:26px 0 18px}
+  .filtros input[type=search]{
+    flex:1;min-width:200px;max-width:320px;padding:9px 13px;font-size:13.5px;
+    font-family:inherit;color:#fff;background:var(--surface);
+    border:1px solid var(--edge);border-radius:8px;
+  }
+  .filtros input[type=search]:focus{outline:none;border-color:var(--ciano)}
+  .filtros .chip{
+    background:transparent;border:1px solid var(--edge);color:var(--body);
+    border-radius:99px;padding:7px 15px;font-size:12.5px;font-weight:600;cursor:pointer;
+  }
+  .filtros .chip:hover{color:#fff;border-color:var(--aco)}
+  .filtros .chip.on{border-color:var(--ciano);color:var(--ciano);background:rgba(96,207,226,.08)}
+  .filtros .contagem{margin-left:auto;font-size:12px;color:var(--aco)}
+
+  .tabelawrap{overflow-x:auto;border:1px solid var(--edge-soft);border-radius:12px;background:var(--surface)}
+  table.quadro-tab{border-collapse:separate;border-spacing:0;width:100%;font-size:13px}
+  table.quadro-tab th,table.quadro-tab td{padding:0;text-align:center}
+  table.quadro-tab thead th{
+    position:sticky;top:0;background:var(--navy);z-index:3;
+    padding:12px 8px 10px;border-bottom:1px solid var(--edge);
+  }
+  table.quadro-tab thead th.pessoa{
+    position:sticky;left:0;z-index:4;text-align:left;padding-left:16px;min-width:230px;
+  }
+  .colapp{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:78px}
+  .colapp .mk{
+    width:26px;height:26px;border-radius:7px;display:grid;place-items:center;
+    background:var(--night);border:1px solid var(--edge);
+  }
+  .colapp .mk img,.colapp .mk svg{width:16px;height:16px;display:block}
+  .colapp .nm{font-size:9px;font-weight:800;letter-spacing:.08em;color:var(--body)}
+  table.quadro-tab tbody td{border-bottom:1px solid var(--edge-soft);padding:7px 4px}
+  table.quadro-tab tbody tr:last-child td{border-bottom:none}
+  table.quadro-tab tbody tr:hover td{background:rgba(99,140,173,.05)}
+  td.pessoa{
+    position:sticky;left:0;background:var(--surface);z-index:2;
+    text-align:left!important;padding:10px 14px 10px 16px!important;
+  }
+  table.quadro-tab tbody tr:hover td.pessoa{background:#18223a}
+  td.pessoa b{display:block;font-size:13px;font-weight:700;color:#fff;line-height:1.3}
+  td.pessoa small{color:var(--aco);font-size:11px}
+  td.pessoa .tipo{
+    display:inline-block;margin-top:3px;font-size:8.5px;font-weight:800;
+    letter-spacing:.12em;text-transform:uppercase;border-radius:4px;padding:2px 7px;
+  }
+  .tipo.func{color:var(--ciano);background:rgba(96,207,226,.1)}
+  .tipo.terc{color:var(--aco);background:rgba(99,140,173,.12)}
+  .tipo.sup{color:#101828;background:var(--ciano)}
+
+  /* a celula e um portao: aceso = acesso aberto */
+  .celula{
+    background:none;border:none;padding:4px;cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;gap:5px;width:100%;
+  }
+  .celula .portaozinho{
+    position:relative;width:30px;height:36px;overflow:hidden;
+    clip-path:polygon(50% 0%, 100% 16%, 100% 100%, 0% 100%, 0% 16%);
+    background:radial-gradient(120% 100% at 50% 58%,var(--ciano),rgba(10,15,28,.92) 80%);
+    transition:filter .2s;
+  }
+  .celula .portaozinho::before,.celula .portaozinho::after{
+    content:"";position:absolute;top:0;bottom:0;width:50.5%;
+    background:linear-gradient(112deg,var(--leaf-hi),var(--leaf-lo));
+    transition:transform .35s cubic-bezier(.62,.02,.24,1);
+  }
+  .celula .portaozinho::before{left:0}
+  .celula .portaozinho::after{right:0}
+  .celula[data-aberto="1"] .portaozinho::before{transform:translateX(-101%)}
+  .celula[data-aberto="1"] .portaozinho::after{transform:translateX(101%)}
+  .celula:hover .portaozinho{filter:brightness(1.25)}
+  .celula:hover[data-aberto="0"] .portaozinho::before{transform:translateX(-16%)}
+  .celula:hover[data-aberto="0"] .portaozinho::after{transform:translateX(16%)}
+  .celula:focus-visible{outline:2px solid var(--ciano);outline-offset:2px;border-radius:6px}
+  .celula .papel{
+    font-size:8.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--ciano);white-space:nowrap;
+  }
+  .celula[data-aberto="0"] .papel{color:#3D4F6B}
+
+  .quadro .legenda{
+    display:flex;gap:22px;flex-wrap:wrap;align-items:center;
+    margin-top:18px;font-size:12px;color:var(--aco);
+  }
+  .quadro .legenda span{display:flex;align-items:center;gap:8px}
+  .quadro .legenda i{
+    width:20px;height:24px;display:block;flex:none;
+    clip-path:polygon(50% 0%, 100% 16%, 100% 100%, 0% 100%, 0% 16%);
+  }
+  .legenda i.aberto{background:radial-gradient(120% 100% at 50% 58%,var(--ciano),rgba(10,15,28,.9) 80%)}
+  .legenda i.fechado{background:linear-gradient(112deg,var(--leaf-hi),var(--leaf-lo))}
+
+  /* painel lateral de edicao do acesso */
+  .gaveta{
+    position:fixed;inset:0;z-index:70;display:none;
+    background:rgba(5,9,18,.72);backdrop-filter:blur(3px);
+  }
+  .gaveta.on{display:block}
+  .gaveta .painel{
+    position:absolute;right:0;top:0;bottom:0;width:min(380px,92vw);
+    background:var(--navy);border-left:1px solid var(--edge);
+    padding:28px 26px;overflow-y:auto;
+  }
+  .gaveta .painel h3{font-weight:800;font-size:17px;margin:0 0 4px}
+  .gaveta .painel .quem{color:var(--aco);font-size:12.5px;margin:0 0 20px}
+  .gaveta .painel .appnome{
+    display:flex;align-items:center;gap:10px;margin:20px 0 16px;
+    padding:12px;border:1px solid var(--edge-soft);border-radius:10px;background:var(--surface);
+  }
+  .gaveta .painel .appnome .mk{
+    width:32px;height:32px;border-radius:8px;display:grid;place-items:center;flex:none;
+    background:var(--night);border:1px solid var(--edge);
+  }
+  .gaveta .painel .appnome .mk img,.gaveta .painel .appnome .mk svg{width:19px;height:19px;display:block}
+  .gaveta .painel .appnome b{font-size:13.5px;font-weight:800;letter-spacing:.14em}
+  .gaveta .painel label.campo{
+    display:block;font-size:10px;font-weight:800;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--aco);margin:0 0 8px;
+  }
+  .gaveta .painel select{
+    width:100%;background:var(--surface);color:#fff;border:1px solid var(--edge);
+    border-radius:8px;padding:11px 12px;font-family:inherit;font-size:14px;font-weight:600;
+  }
+  .gaveta .painel select:focus{outline:none;border-color:var(--ciano)}
+  .gaveta .painel select option{background:var(--navy)}
+  .gaveta .acoes{display:flex;flex-direction:column;gap:10px;margin-top:24px}
+  .gaveta .btn-revogar{
+    background:transparent;border:1px solid rgba(224,120,86,.5);color:#E07856;
+    border-radius:8px;padding:12px;font-size:12.5px;font-weight:800;
+    letter-spacing:.12em;text-transform:uppercase;cursor:pointer;
+  }
+  .gaveta .btn-revogar:hover{background:rgba(224,120,86,.1)}
+  .gaveta .fechar{
+    background:none;border:none;color:var(--aco);font-size:13px;cursor:pointer;
+    padding:8px 0;text-align:center;
+  }
+  .gaveta .fechar:hover{color:#fff}
+
+  @media (max-width:820px){
+    .adminnav{padding:0 12px;overflow-x:auto}
+    .adminnav button{padding:11px 12px;font-size:12px;white-space:nowrap}
+    .adminnav .selo{display:none}
+    .quadro{padding:30px 14px 60px}
+  }
+
   /* ---------- toast ---------- */
   .toast{
     position:fixed;left:50%;bottom:28px;transform:translate(-50%,18px);
@@ -458,7 +631,7 @@
   <button class="persona" data-p="ana"><b>Ana</b> <small>· funcionária, 5 apps</small></button>
   <button class="persona" data-p="bruno"><b>Bruno</b> <small>· terceiro, 2 apps</small></button>
   <button class="persona" data-p="carla"><b>Carla</b> <small>· terceira, 1 app</small></button>
-  <button class="persona" data-p="admin"><b>Diego</b> <small>· admin · convites</small></button>
+  <button class="persona" data-p="diego"><b>Diego</b> <small>· super admin</small></button>
 </div>
 
 <div class="flash" id="flash"></div>
@@ -555,6 +728,7 @@
       <button class="sair">Sair</button>
     </div>
   </header>
+  <nav class="adminnav navslot" hidden></nav>
   <main class="hall">
     <span class="eyebrow">Suas aplicações</span>
     <h2 id="hello-line"></h2>
@@ -574,6 +748,69 @@
   </div>
 </section>
 
+<!-- =============== QUADRO DE ACESSOS (SUPER ADMIN) =============== -->
+<section class="screen" id="screen-quadro">
+  <header class="head">
+    <div class="lockup">
+      <span class="chip" aria-hidden="true">
+        <svg width="17" height="17" viewBox="0 0 48 48">
+          <path d="M11 13 L25 24 L11 35" fill="none" stroke="#60CFE2" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M37 13 L23 24 L37 35" fill="none" stroke="#60CFE2" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </span>
+      <span class="nm"><b>SHAAR</b><span class="regua"></span><span class="byxpto">by <b>XPTO</b></span></span>
+    </div>
+    <div class="userchip">
+      <div class="who"><b>Diego Rocha</b><small>diego.rocha@xptoinc.com.br · Super administrador</small></div>
+      <div class="avatar">DR</div>
+      <button class="sair">Sair</button>
+    </div>
+  </header>
+  <nav class="adminnav navslot" hidden></nav>
+  <main class="quadro">
+    <span class="eyebrow">Administração · Acessos</span>
+    <h2>Quadro de acessos</h2>
+    <p class="sub">Cada linha é uma pessoa, cada coluna é um portão. Portão aceso, acesso liberado. Clique numa célula para abrir, fechar ou trocar o papel.</p>
+
+    <div class="filtros">
+      <input type="search" id="busca" placeholder="Buscar por nome ou e-mail" aria-label="Buscar pessoa">
+      <button class="chip on" data-filtro="todos">Todos</button>
+      <button class="chip" data-filtro="Funcionária">Funcionários</button>
+      <button class="chip" data-filtro="Terceira">Terceiros</button>
+      <span class="contagem" id="contagem"></span>
+    </div>
+
+    <div class="tabelawrap">
+      <table class="quadro-tab">
+        <thead><tr id="quadro-cabecalho"></tr></thead>
+        <tbody id="quadro-corpo"></tbody>
+      </table>
+    </div>
+
+    <div class="legenda">
+      <span><i class="aberto"></i> portão aberto — acesso concedido</span>
+      <span><i class="fechado"></i> portão fechado — sem acesso</span>
+      <span>Nada é concedido sozinho: só o que você abrir aqui, ou o que um convite carregar.</span>
+    </div>
+  </main>
+</section>
+
+<!-- gaveta de edicao de um acesso -->
+<div class="gaveta" id="gaveta">
+  <div class="painel" role="dialog" aria-modal="true" aria-label="Editar acesso">
+    <h3 id="g-titulo"></h3>
+    <p class="quem" id="g-quem"></p>
+    <div class="appnome"><span class="mk" id="g-mk"></span><b id="g-app"></b></div>
+    <label class="campo" for="g-papel">Papel nesta aplicação</label>
+    <select id="g-papel"></select>
+    <div class="acoes">
+      <button class="btn btn-ciano" id="g-salvar" type="button">Salvar acesso</button>
+      <button class="btn-revogar" id="g-revogar" type="button">Revogar acesso</button>
+      <button class="fechar" id="g-fechar" type="button">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <!-- =============== CONVITES (ADMIN) =============== -->
 <section class="screen" id="screen-admin">
   <header class="head">
@@ -592,6 +829,7 @@
       <button class="sair">Sair</button>
     </div>
   </header>
+  <nav class="adminnav navslot" hidden></nav>
   <main class="forja">
     <span class="eyebrow">Administração · Convites</span>
     <h2>Convidar usuário externo</h2>
@@ -668,6 +906,7 @@
     MANNA:      { logo:"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCIgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0Ij48cmVjdCB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHJ4PSIxMS43OCIgcnk9IjExLjc4IiBmaWxsPSIjMTAxODI4Ii8+PGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoLTQuMTcsMi4wNykgc2NhbGUoMC4yNjAyNCkiPjxwYXRoIGQ9Ik0gNTYgMTc0LjAgViA1Ni4wIEggNzggTCAxMzkuMCAxNzQuMCBIIDExNS4wIEwgNzggMTAyLjQzIFYgMTc0LjAgWiIgZmlsbD0iI0ZGRkZGRiIvPjxwYXRoIGQ9Ik0gMjIyIDE3NC4wIFYgNTYuMCBIIDIwMCBMIDEzOS4wIDE3NC4wIEggMTYzLjAgTCAyMDAgMTAyLjQzIFYgMTc0LjAgWiIgZmlsbD0iI0ZGRkZGRiIvPjxwYXRoIGQ9Ik0gMTE2LjAwIDEwNy43MyBMIDEzOS4wMCAxMjEuOTcgTCAxNjIuMDAgMTA3LjczIEwgMTM5LjAgMTUyLjIyIFoiIGZpbGw9IiM2MENGRTIiLz48L2c+PC9zdmc+", desc:"Compras e suprimentos — da solicitação ao recebimento." },
     BNYISRAEL:  { logo:"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNTYgMjU2IiB3aWR0aD0iMjU2IiBoZWlnaHQ9IjI1NiIgcm9sZT0iaW1nIiBhcmlhLWxhYmVsPSJTaW1ib2xvIEJORUkgWUlTUkFFTCI+PHJlY3Qgd2lkdGg9IjI1NiIgaGVpZ2h0PSIyNTYiIHJ4PSI0Mi42OCIgcnk9IjQyLjY4IiBmaWxsPSIjMTAxODI4Ii8+PHJlY3QgeD0iNjkuMCIgeT0iNDkuMCIgd2lkdGg9IjMyIiBoZWlnaHQ9IjIzIiByeD0iMiIgZmlsbD0iI0ZGRkZGRiIvPjxyZWN0IHg9IjY5LjAiIHk9Ijc2LjAiIHdpZHRoPSIzMiIgaGVpZ2h0PSIyMyIgcng9IjIiIGZpbGw9IiNGRkZGRkYiLz48cmVjdCB4PSI2OS4wIiB5PSIxMDMuMCIgd2lkdGg9IjMyIiBoZWlnaHQ9IjIzIiByeD0iMiIgZmlsbD0iI0ZGRkZGRiIvPjxyZWN0IHg9IjY5LjAiIHk9IjEzMC4wIiB3aWR0aD0iMzIiIGhlaWdodD0iMjMiIHJ4PSIyIiBmaWxsPSIjRkZGRkZGIi8+PHJlY3QgeD0iNjkuMCIgeT0iMTU3LjAiIHdpZHRoPSIzMiIgaGVpZ2h0PSIyMyIgcng9IjIiIGZpbGw9IiNGRkZGRkYiLz48cmVjdCB4PSI2OS4wIiB5PSIxODQuMCIgd2lkdGg9IjMyIiBoZWlnaHQ9IjIzIiByeD0iMiIgZmlsbD0iI0ZGRkZGRiIvPjxyZWN0IHg9IjEwNS4wIiB5PSI0OS4wIiB3aWR0aD0iMzIiIGhlaWdodD0iMjMiIHJ4PSIyIiBmaWxsPSIjRkZGRkZGIi8+PHJlY3QgeD0iMTA1LjAiIHk9IjEwMy4wIiB3aWR0aD0iMzIiIGhlaWdodD0iMjMiIHJ4PSIyIiBmaWxsPSIjNjBDRkUyIi8+PHJlY3QgeD0iMTA1LjAiIHk9IjE4NC4wIiB3aWR0aD0iMzIiIGhlaWdodD0iMjMiIHJ4PSIyIiBmaWxsPSIjRkZGRkZGIi8+PHBhdGggZD0iTTE0MS4wIDc2LjAgSDE2Mi4wIEwxNzEuMCA4NS4wIFY5MC4wIEwxNjIuMCA5OS4wIEgxNDEuMCBaIiBmaWxsPSIjRkZGRkZGIi8+PHBhdGggZD0iTTE0MS4wIDEzMC4wIEgxNzguMCBMMTg3LjAgMTM5LjAgVjE1My4wIEgxNDEuMCBaIiBmaWxsPSIjRkZGRkZGIi8+PHBhdGggZD0iTTE0MS4wIDE1Ny4wIEgxODcuMCBWMTcxLjAgTDE3OC4wIDE4MC4wIEgxNDEuMCBaIiBmaWxsPSIjRkZGRkZGIi8+PC9zdmc+", name:"BNEI YISRAEL", desc:"Governança de pessoas, contratos, custos e compliance." },
     SPHRAGIS:   { logo:"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0OCA0OCIgd2lkdGg9IjUxMiIgaGVpZ2h0PSI1MTIiPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDAgMCkgc2NhbGUoMSkiPjxwYXRoIGQ9Ik04LjQgMEgzOS42QTguNCA4LjQgMCAwIDEgNDggOC40VjM5LjZBOC40IDguNCAwIDAgMSAzOS42IDQ4SDguNEE4LjQgOC40IDAgMCAxIDAgMzkuNlY4LjRBOC40IDguNCAwIDAgMSA4LjQgMFoiIGZpbGw9IiMxMDE4MjgiLz48cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGZpbGw9IiM2MENGRTIiIGQ9Ik0yNCA3LjAwOUMyNC4yOTYgNy4wNDYgMjQuNTk0IDcuMDczIDI0Ljg4MyA3LjE1OEMyNS4xNzEgNy4yNDMgMjUuNDY0IDcuMzM2IDI1LjczMyA3LjUxNkMyNi4wMDEgNy42OTYgMjYuMjU5IDcuOTY4IDI2LjQ5NiA4LjIzOUMyNi43MzQgOC41MDkgMjYuOTM5IDguODgzIDI3LjE1OSA5LjEzN0MyNy4zNzkgOS4zOSAyNy41NzggOS42MzYgMjcuODE2IDkuNzU5QzI4LjA1NCA5Ljg4MiAyOC4zMTMgOS44NzggMjguNTkgOS44NzRDMjguODY2IDkuODcgMjkuMTg1IDkuNzUyIDI5LjQ3NiA5LjczNEMyOS43NjcgOS43MTcgMzAuMDcxIDkuNzAzIDMwLjMzNyA5Ljc2N0MzMC42MDMgOS44MzIgMzAuODQxIDkuOTc4IDMxLjA3MiAxMC4xMjFDMzEuMzAyIDEwLjI2NCAzMS41MDkgMTAuNDU1IDMxLjcyMSAxMC42MjdDMzEuOTMyIDEwLjggMzIuMTUyIDEwLjk1OSAzMi4zNCAxMS4xNTdDMzIuNTI5IDExLjM1NSAzMi43MTkgMTEuNTU2IDMyLjg1MiAxMS44MTdDMzIuOTg0IDEyLjA3NyAzMy4wNjUgMTIuNDA1IDMzLjEzNiAxMi43MThDMzMuMjA2IDEzLjAzMiAzMy4yMDIgMTMuNDE0IDMzLjI3NyAxMy42OTdDMzMuMzUxIDEzLjk4IDMzLjQxNyAxNC4yNDIgMzMuNTg0IDE0LjQxNkMzMy43NTIgMTQuNTkgMzQuMDA1IDE0LjY2MiAzNC4yODEgMTQuNzQzQzM0LjU1NiAxNC44MjQgMzQuOTMxIDE0LjgyNSAzNS4yMzcgMTQuOTAxQzM1LjU0MiAxNC45NzcgMzUuODYyIDE1LjA2MiAzNi4xMTUgMTUuMTk4QzM2LjM2NyAxNS4zMzUgMzYuNTYgMTUuNTI5IDM2Ljc1IDE1LjcyQzM2Ljk0MSAxNS45MTEgMzcuMDkyIDE2LjEzMyAzNy4yNTggMTYuMzQ2QzM3LjQyMyAxNi41NTkgMzcuNjA3IDE2Ljc2NiAzNy43NDQgMTYuOTk3QzM3Ljg4MSAxNy4yMjggMzguMDIxIDE3LjQ2NiAzOC4wOCAxNy43MzFDMzguMTM5IDE3Ljk5NiAzOC4xMjEgMTguMjk4IDM4LjA5OSAxOC41ODhDMzguMDc3IDE4Ljg3NyAzNy45NTYgMTkuMTkzIDM3Ljk0OSAxOS40NjhDMzcuOTQzIDE5Ljc0MiAzNy45MzggMTkuOTk3IDM4LjA2IDIwLjIzM0MzOC4xODIgMjAuNDY4IDM4LjQyOCAyMC42NjMgMzguNjgyIDIwLjg3OUMzOC45MzYgMjEuMDk2IDM5LjMxMyAyMS4yOTcgMzkuNTg1IDIxLjUzMkMzOS44NTggMjEuNzY2IDQwLjEzMyAyMi4wMTkgNDAuMzE4IDIyLjI4NUM0MC41MDIgMjIuNTUxIDQwLjYgMjIuODM5IDQwLjY5IDIzLjEyNUM0MC43ODEgMjMuNDExIDQwLjgxNSAyMy43MDYgNDAuODU5IDI0QzQwLjkwMiAyNC4yOTQgNDAuOTU3IDI0LjU5NCA0MC45NTMgMjQuODg4QzQwLjk0OSAyNS4xODMgNDAuOTM3IDI1LjQ4NiA0MC44MzUgMjUuNzY5QzQwLjczMyAyNi4wNTMgNDAuNTM3IDI2LjMyOCA0MC4zNCAyNi41ODhDNDAuMTQyIDI2Ljg0NyAzOS44MzggMjcuMDc5IDM5LjY1IDI3LjMyNkMzOS40NjEgMjcuNTc0IDM5LjI3NyAyNy44MDQgMzkuMjA5IDI4LjA3NUMzOS4xNDIgMjguMzQ2IDM5LjE5NiAyOC42NDEgMzkuMjQ0IDI4Ljk1M0MzOS4yOTIgMjkuMjY1IDM5LjQ0OSAyOS42MjIgMzkuNDk5IDI5Ljk0OUMzOS41NDggMzAuMjc3IDM5LjU4OCAzMC42MTggMzkuNTQyIDMwLjkyQzM5LjQ5NiAzMS4yMjEgMzkuMzYyIDMxLjQ5NSAzOS4yMjQgMzEuNzU3QzM5LjA4NyAzMi4wMiAzOC44OTUgMzIuMjU4IDM4LjcxNSAzMi40OTZDMzguNTM1IDMyLjczNCAzOC4zNjIgMzIuOTc4IDM4LjE0NCAzMy4xODVDMzcuOTI3IDMzLjM5MyAzNy43IDMzLjYgMzcuNDA5IDMzLjc0MkMzNy4xMTkgMzMuODg1IDM2Ljc1NCAzMy45NzIgMzYuNDAyIDM0LjA0M0MzNi4wNDkgMzQuMTE0IDM1LjYyMiAzNC4xMDQgMzUuMjkyIDM0LjE2OEMzNC45NjMgMzQuMjMyIDM0LjY1MSAzNC4yOCAzNC40MjUgMzQuNDI1QzM0LjIgMzQuNTcgMzQuMDczIDM0Ljc5NiAzMy45MzggMzUuMDM4QzMzLjgwNCAzNS4yNzkgMzMuNzQ3IDM1LjYxNCAzMy42MTYgMzUuODc1QzMzLjQ4NiAzNi4xMzYgMzMuMzQ2IDM2LjQwNiAzMy4xNTcgMzYuNjA0QzMyLjk2OSAzNi44MDIgMzIuNzIzIDM2LjkzNiAzMi40ODQgMzcuMDY0QzMyLjI0NCAzNy4xOTIgMzEuOTc2IDM3LjI3NiAzMS43MjEgMzcuMzczQzMxLjQ2NSAzNy40NjkgMzEuMjE4IDM3LjU4IDMwLjk1MiAzNy42NDRDMzAuNjg2IDM3LjcwOSAzMC40MTcgMzcuNzczIDMwLjEyNSAzNy43NThDMjkuODM0IDM3Ljc0MiAyOS41MDkgMzcuNjQ4IDI5LjIwMiAzNy41NTJDMjguODk1IDM3LjQ1NyAyOC41NjYgMzcuMjYyIDI4LjI4NCAzNy4xODVDMjguMDAyIDM3LjEwOCAyNy43NDMgMzcuMDM0IDI3LjUwOCAzNy4wOTJDMjcuMjczIDM3LjE1IDI3LjA4NCAzNy4zMzQgMjYuODc2IDM3LjUzMkMyNi42NjkgMzcuNzMgMjYuNDggMzguMDU0IDI2LjI2MiAzOC4yODFDMjYuMDQzIDM4LjUwNyAyNS44MSAzOC43NDIgMjUuNTY1IDM4Ljg5MkMyNS4zMjEgMzkuMDQzIDI1LjA1NyAzOS4xMTMgMjQuNzk2IDM5LjE4MkMyNC41MzUgMzkuMjUyIDI0LjI2NyAzOS4yNzIgMjQgMzkuMzA5QzIzLjczMyAzOS4zNDYgMjMuNDYxIDM5LjQgMjMuMTkzIDM5LjQwNEMyMi45MjQgMzkuNDA3IDIyLjY0OCAzOS40MDkgMjIuMzg5IDM5LjMyOEMyMi4xMyAzOS4yNDcgMjEuODc3IDM5LjA4IDIxLjYzOCAzOC45MTZDMjEuMzk4IDM4Ljc1MyAyMS4xODUgMzguNDg5IDIwLjk1IDM4LjM0N0MyMC43MTYgMzguMjA0IDIwLjQ5NyAzOC4wNzIgMjAuMjMzIDM4LjA2QzE5Ljk2OCAzOC4wNDggMTkuNjc2IDM4LjE2NCAxOS4zNjIgMzguMjc2QzE5LjA0NyAzOC4zODcgMTguNjg0IDM4LjYxMyAxOC4zNDUgMzguNzMxQzE4LjAwNiAzOC44NSAxNy42NDkgMzguOTYyIDE3LjMyNiAzOC45ODlDMTcuMDA0IDM5LjAxNiAxNi43MDUgMzguOTU2IDE2LjQxMiAzOC44OTJDMTYuMTIgMzguODI3IDE1Ljg0NyAzOC43MDkgMTUuNTcxIDM4LjZDMTUuMjk0IDM4LjQ5MSAxNS4wMDcgMzguMzg5IDE0Ljc1NCAzOC4yMzhDMTQuNTAxIDM4LjA4NyAxNC4yNDQgMzcuOTI1IDE0LjA1IDM3LjY5NUMxMy44NTYgMzcuNDY0IDEzLjcxNSAzNy4xNTcgMTMuNTg5IDM2Ljg1N0MxMy40NjMgMzYuNTU2IDEzLjQxNSAzNi4xNzcgMTMuMjk0IDM1Ljg5QzEzLjE3NCAzNS42MDMgMTMuMDY3IDM1LjMyOCAxMi44NjYgMzUuMTM0QzEyLjY2NSAzNC45NCAxMi4zODMgMzQuODQgMTIuMDg4IDM0LjcyNUMxMS43OTQgMzQuNjExIDExLjQwNyAzNC41NjggMTEuMDk4IDM0LjQ0OEMxMC43OSAzNC4zMjcgMTAuNDc1IDM0LjE5IDEwLjIzNiAzNEM5Ljk5OCAzMy44MSA5LjgyOCAzMy41NTcgOS42NyAzMy4zMDZDOS41MTEgMzMuMDU1IDkuNDAxIDMyLjc3MSA5LjI4NSAzMi40OTZDOS4xNjkgMzIuMjIxIDkuMDQ0IDMxLjk0OSA4Ljk3MyAzMS42NTdDOC45MDIgMzEuMzY0IDguODM3IDMxLjA2NSA4Ljg1OCAzMC43NDJDOC44OCAzMC40MTkgOC45ODcgMzAuMDYgOS4xMDIgMjkuNzE5QzkuMjE3IDI5LjM3OCA5LjQzOSAyOS4wMTMgOS41NDggMjguNjk2QzkuNjU4IDI4LjM3OSA5Ljc3MSAyOC4wODQgOS43NTkgMjcuODE2QzkuNzQ2IDI3LjU0OCA5LjYxNCAyNy4zMjYgOS40NzIgMjcuMDg4QzkuMzMgMjYuODUgOS4wNjkgMjYuNjM0IDguOTA4IDI2LjM5QzguNzQ3IDI2LjE0NyA4LjU4MyAyNS44OTEgOC41MDYgMjUuNjI5QzguNDI5IDI1LjM2NiA4LjQzNiAyNS4wODcgOC40NDUgMjQuODE1QzguNDU0IDI0LjU0NCA4LjUxNSAyNC4yNjkgOC41NTkgMjRDOC42MDIgMjMuNzMxIDguNjMgMjMuNDYxIDguNzA4IDIzLjE5OUM4Ljc4NSAyMi45MzYgOC44NjQgMjIuNjcxIDkuMDIzIDIyLjQyNkM5LjE4MiAyMi4xODEgOS40MjYgMjEuOTQ3IDkuNjYyIDIxLjcyOUM5Ljg5OCAyMS41MTEgMTAuMjMyIDIxLjMyNCAxMC40MzkgMjEuMTE4QzEwLjY0NyAyMC45MTEgMTAuODQxIDIwLjcyNCAxMC45MDggMjAuNDkyQzEwLjk3NSAyMC4yNiAxMC45MTEgMjAuMDA0IDEwLjg0MyAxOS43MjVDMTAuNzc1IDE5LjQ0NiAxMC41ODkgMTkuMTIxIDEwLjUwMiAxOC44MThDMTAuNDE1IDE4LjUxNiAxMC4zMjggMTguMTk2IDEwLjMyIDE3LjkwOUMxMC4zMTIgMTcuNjIzIDEwLjM4NCAxNy4zNTkgMTAuNDU0IDE3LjA5OEMxMC41MjQgMTYuODM3IDEwLjY0MSAxNi41OTUgMTAuNzQyIDE2LjM0NkMxMC44NDQgMTYuMDk2IDEwLjkzMiAxNS44MzMgMTEuMDY0IDE1LjU5OUMxMS4xOTUgMTUuMzY1IDExLjMzMSAxNS4xMjUgMTEuNTMxIDE0Ljk0MUMxMS43MzEgMTQuNzU3IDEyLjAwMiAxNC42MjIgMTIuMjYzIDE0LjQ5NkMxMi41MjUgMTQuMzcgMTIuODU5IDE0LjMxNyAxMy4xIDE0LjE4NkMxMy4zNDEgMTQuMDU0IDEzLjU2NSAxMy45MzEgMTMuNzA3IDEzLjcwN0MxMy44NSAxMy40ODQgMTMuODk2IDEzLjE3NCAxMy45NTYgMTIuODQ1QzE0LjAxNyAxMi41MTcgMTQuMDAzIDEyLjA5IDE0LjA3IDExLjczN0MxNC4xMzYgMTEuMzg0IDE0LjIxOCAxMS4wMTggMTQuMzU2IDEwLjcyNkMxNC40OTQgMTAuNDM0IDE0LjY5NSAxMC4yMDQgMTQuODk3IDkuOTgzQzE1LjEgOS43NjIgMTUuMzM4IDkuNTg1IDE1LjU3MSA5LjRDMTUuODAzIDkuMjE1IDE2LjAzNSA5LjAxOCAxNi4yOTMgOC44NzRDMTYuNTUgOC43MyAxNi44MTkgOC41ODkgMTcuMTE1IDguNTM2QzE3LjQxMSA4LjQ4MyAxNy43NDggOC41MTQgMTguMDcxIDguNTU1QzE4LjM5NSA4LjU5NyAxOC43NDcgOC43NDUgMTkuMDU2IDguNzg0QzE5LjM2NSA4LjgyMyAxOS42NTYgOC44NjggMTkuOTI1IDguNzkxQzIwLjE5MyA4LjcxNCAyMC40MjEgOC41MiAyMC42NjcgOC4zMjJDMjAuOTE0IDguMTI0IDIxLjE0NCA3LjgxIDIxLjQwMyA3LjYwM0MyMS42NjIgNy4zOTYgMjEuOTM4IDcuMTkyIDIyLjIyMiA3LjA4MUMyMi41MDUgNi45NjkgMjIuODA5IDYuOTQ5IDIzLjEwNiA2LjkzN0MyMy40MDIgNi45MjUgMjMuNzA0IDYuOTcyIDI0IDcuMDA5WiBNMjkuMTYyIDE0LjIzOEE3LjMgNy4zIDAgMCAwIDIwLjM1IDEzLjA3OEE3LjMgNy4zIDAgMCAwIDE2Ljk0OSAyMS4yODlBNy4zIDcuMyAwIDAgMCAyNCAyNi43QTEuOSAxLjkgMCAwIDEgMjUuODM1IDI4LjEwOEExLjkgMS45IDAgMCAxIDI0Ljk1IDMwLjI0NUExLjkgMS45IDAgMCAxIDIyLjY1NiAyOS45NDRMMTkuMDUgMzAuMTU2TDE4LjgzOCAzMy43NjJBNy4zIDcuMyAwIDAgMCAyNy42NSAzNC45MjJBNy4zIDcuMyAwIDAgMCAzMS4wNTEgMjYuNzExQTcuMyA3LjMgMCAwIDAgMjQgMjEuM0ExLjkgMS45IDAgMCAxIDIyLjE2NSAxOS44OTJBMS45IDEuOSAwIDAgMSAyMy4wNSAxNy43NTVBMS45IDEuOSAwIDAgMSAyNS4zNDQgMTguMDU2TDI1LjU1NiAxNC40NVoiLz48L2c+PC9zdmc+", desc:"Assinatura eletrônica avançada de documentos." },
+    MERKAVAH:   { desc:"Aplicação do ecossistema — identidade a definir." },
   };
 
   const PERSONAS = {
@@ -677,7 +916,29 @@
              apps:{ FAITH:"Consultor", SPHRAGIS:"Signatário" } },
     carla: { name:"Carla Mendes", mail:"carla@escritorio.adv.br", kind:"Terceira · Jurídico",
              apps:{ SPHRAGIS:"Signatária" } },
+    diego: { name:"Diego Rocha", mail:"diego.rocha@xptoinc.com.br", kind:"Super administrador",
+             super:true,
+             apps:{ TETELESTAI:"Admin", JIREH:"Admin", FAITH:"Admin", TIKKUN:"Admin",
+                    MANNA:"Admin", BNYISRAEL:"Admin", SPHRAGIS:"Admin", MERKAVAH:"Admin" } },
   };
+
+  // Base de acessos que o super admin administra no Quadro.
+  const DIRETORIO = [
+    { nome:"Ana Beatriz",  mail:"ana.beatriz@xptoinc.com.br",  tipo:"Funcionária",
+      apps:{ TETELESTAI:"Admin", JIREH:"Operador(a)", TIKKUN:"Operador(a)", MANNA:"Leitura", SPHRAGIS:"Gestor(a)" } },
+    { nome:"Diego Rocha",  mail:"diego.rocha@xptoinc.com.br",  tipo:"Super admin",
+      apps:Object.fromEntries(Object.keys(APPS).map(k => [k, "Admin"])) },
+    { nome:"Marcos Antunes", mail:"marcos.antunes@xptoinc.com.br", tipo:"Funcionário",
+      apps:{ TETELESTAI:"Operador(a)", MANNA:"Operador(a)", MERKAVAH:"Leitura" } },
+    { nome:"Renata Vilas",  mail:"renata.vilas@xptoinc.com.br", tipo:"Funcionária",
+      apps:{ BNYISRAEL:"Gestor(a)", TETELESTAI:"Leitura" } },
+    { nome:"Bruno Lima",   mail:"bruno@parceiro.com.br",       tipo:"Terceiro",
+      apps:{ FAITH:"Operador(a)", SPHRAGIS:"Signatário(a)" } },
+    { nome:"Carla Mendes", mail:"carla@escritorio.adv.br",     tipo:"Terceira",
+      apps:{ SPHRAGIS:"Signatário(a)" } },
+    { nome:"Paula Freitas", mail:"paula@auditoria.com.br",     tipo:"Terceira",
+      apps:{ TETELESTAI:"Leitura", SPHRAGIS:"Leitura" } },
+  ];
 
   const $ = (id) => document.getElementById(id);
   const appName = (k) => APPS[k].name || k;
@@ -706,7 +967,7 @@
 
   let current = "ana";
   let timer = null;
-  const screens = ["screen-login","screen-hub","screen-direto","screen-admin","screen-convite"];
+  const screens = ["screen-login","screen-hub","screen-direto","screen-admin","screen-convite","screen-quadro"];
   function show(id){
     screens.forEach(s => $(s).classList.toggle("on", s === id));
     if (id !== "screen-direto" && timer){ clearTimeout(timer); timer = null; }
@@ -720,7 +981,6 @@
     btn.addEventListener("click", () => {
       current = btn.dataset.p;
       document.querySelectorAll(".persona").forEach(b => b.classList.toggle("active", b === btn));
-      if (current === "admin"){ renderAdmin(); show("screen-admin"); return; }
       const p = PERSONAS[current];
       $("em").value = p.mail; $("pw").value = "demo-senha";
       show("screen-login");
@@ -783,6 +1043,7 @@
     const c = $("colunata"); c.innerHTML = "";
     mine.forEach(k => c.appendChild(portalEl(k, p.apps[k])));
     show("screen-hub");
+    montarNav("screen-hub");
   }
 
   function direto(key, p){
@@ -798,7 +1059,8 @@
   $("d-cancel").addEventListener("click", e => { e.preventDefault(); show("screen-login"); });
 
   // ---------- convites ----------
-  const ROLES = ["Leitura","Operador(a)","Signatário(a)","Admin"];
+  const ROLES = ["Leitura","Operador(a)","Signatário(a)","Gestor(a)","Admin"];
+  const TODAS = () => Object.keys(APPS);
   function renderAdmin(){
     const list = $("grant-list");
     if (list.childElementCount) return;
@@ -851,6 +1113,115 @@
       kind: "Terceiro(a) · Convidado(a)",
       apps: grants,
     });
+  });
+
+  // ==================================================================
+  // NAVEGACAO E QUADRO DE ACESSOS (super admin)
+  // ==================================================================
+  const ABAS = [
+    { id:"screen-hub",    rotulo:"Aplicações" },
+    { id:"screen-quadro", rotulo:"Quadro de acessos" },
+    { id:"screen-admin",  rotulo:"Convites" },
+  ];
+  function montarNav(ativa){
+    const ehSuper = PERSONAS[current] && PERSONAS[current].super;
+    document.querySelectorAll(".navslot").forEach(nav => {
+      nav.hidden = !ehSuper;
+      if (!ehSuper) return;
+      nav.innerHTML = ABAS.map(a =>
+        `<button data-goto="${a.id}" class="${a.id === ativa ? "on" : ""}">${a.rotulo}</button>`
+      ).join("") + `<span class="selo">Super admin</span>`;
+      nav.querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+        const destino = b.dataset.goto;
+        if (destino === "screen-hub")   { const p = PERSONAS[current]; salao(p, Object.keys(p.apps)); }
+        if (destino === "screen-quadro"){ renderQuadro(); show("screen-quadro"); }
+        if (destino === "screen-admin") { renderAdmin();  show("screen-admin");  }
+        montarNav(destino);
+      }));
+    });
+  }
+
+  let filtroTipo = "todos", busca = "";
+  const chaveTipo = (t) => t.startsWith("Funcion") ? "Funcionária" : t === "Super admin" ? "Super admin" : "Terceira";
+
+  function pessoasVisiveis(){
+    const q = busca.trim().toLowerCase();
+    return DIRETORIO.filter(pes => {
+      const casaTipo = filtroTipo === "todos" || chaveTipo(pes.tipo) === filtroTipo
+                       || (filtroTipo === "Funcionária" && pes.tipo === "Super admin");
+      const casaBusca = !q || pes.nome.toLowerCase().includes(q) || pes.mail.toLowerCase().includes(q);
+      return casaTipo && casaBusca;
+    });
+  }
+
+  function renderQuadro(){
+    const cab = $("quadro-cabecalho");
+    cab.innerHTML = `<th class="pessoa">Pessoa</th>` + TODAS().map(k =>
+      `<th><span class="colapp"><span class="mk">${mark(k, 16)}</span><span class="nm">${appName(k)}</span></span></th>`
+    ).join("");
+
+    const corpo = $("quadro-corpo");
+    const lista = pessoasVisiveis();
+    corpo.innerHTML = lista.map((pes, idx) => {
+      const cls = pes.tipo === "Super admin" ? "sup" : pes.tipo.startsWith("Funcion") ? "func" : "terc";
+      const celulas = TODAS().map(k => {
+        const papel = pes.apps[k];
+        const aberto = papel ? 1 : 0;
+        return `<td><button class="celula" data-aberto="${aberto}" data-pessoa="${DIRETORIO.indexOf(pes)}" data-app="${k}"
+                  aria-label="${appName(k)} — ${papel || "sem acesso"} — ${pes.nome}">
+                  <span class="portaozinho"></span>
+                  <span class="papel">${papel || "—"}</span>
+                </button></td>`;
+      }).join("");
+      return `<tr>
+        <td class="pessoa"><b>${pes.nome}</b><small>${pes.mail}</small>
+          <span class="tipo ${cls}">${pes.tipo}</span></td>
+        ${celulas}
+      </tr>`;
+    }).join("");
+
+    const totalAcessos = lista.reduce((n, p) => n + Object.keys(p.apps).length, 0);
+    $("contagem").textContent = `${lista.length} ${lista.length === 1 ? "pessoa" : "pessoas"} · ${totalAcessos} acessos concedidos`;
+
+    corpo.querySelectorAll(".celula").forEach(c => c.addEventListener("click", () => abrirGaveta(+c.dataset.pessoa, c.dataset.app)));
+  }
+
+  $("busca").addEventListener("input", e => { busca = e.target.value; renderQuadro(); });
+  document.querySelectorAll(".filtros .chip").forEach(b => b.addEventListener("click", () => {
+    document.querySelectorAll(".filtros .chip").forEach(x => x.classList.toggle("on", x === b));
+    filtroTipo = b.dataset.filtro; renderQuadro();
+  }));
+
+  // ---------- gaveta de edicao ----------
+  let alvo = { pessoa:null, app:null };
+  function abrirGaveta(iPessoa, app){
+    alvo = { pessoa:iPessoa, app };
+    const pes = DIRETORIO[iPessoa], papel = pes.apps[app];
+    $("g-titulo").textContent = papel ? "Editar acesso" : "Conceder acesso";
+    $("g-quem").textContent = `${pes.nome} · ${pes.mail}`;
+    $("g-mk").innerHTML = mark(app, 19);
+    $("g-app").textContent = appName(app);
+    $("g-papel").innerHTML = ROLES.map(r => `<option${r === papel ? " selected" : ""}>${r}</option>`).join("");
+    $("g-revogar").hidden = !papel;
+    $("gaveta").classList.add("on");
+    $("g-papel").focus();
+  }
+  function fecharGaveta(){ $("gaveta").classList.remove("on"); }
+  $("g-fechar").addEventListener("click", fecharGaveta);
+  $("gaveta").addEventListener("click", e => { if (e.target.id === "gaveta") fecharGaveta(); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape") fecharGaveta(); });
+
+  $("g-salvar").addEventListener("click", () => {
+    const pes = DIRETORIO[alvo.pessoa];
+    pes.apps[alvo.app] = $("g-papel").value;
+    fecharGaveta(); renderQuadro();
+    toast(`${appName(alvo.app)} aberto para ${pes.nome.split(" ")[0]} como ${pes.apps[alvo.app]}.`);
+  });
+  $("g-revogar").addEventListener("click", () => {
+    const pes = DIRETORIO[alvo.pessoa];
+    delete pes.apps[alvo.app];
+    fecharGaveta(); renderQuadro();
+    toast(`Acesso de ${pes.nome.split(" ")[0]} ao ${appName(alvo.app)} revogado.`);
   });
 
   let toastTimer = null;
