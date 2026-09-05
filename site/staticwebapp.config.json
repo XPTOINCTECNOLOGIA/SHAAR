@@ -1,23 +1,14 @@
 {
   "$schema": "https://json.schemastore.org/staticwebapp.config.json",
   "trailingSlash": "auto",
-  "auth": {
-    "identityProviders": {
-      "azureActiveDirectory": {
-        "registration": {
-          "openIdIssuer": "https://login.microsoftonline.com/<TENANT_ID>/v2.0",
-          "clientIdSettingName": "AAD_CLIENT_ID",
-          "clientSecretSettingName": "AAD_CLIENT_SECRET"
-        }
-      }
-    }
-  },
   "routes": [
+    { "route": "/sem-acesso.html", "allowedRoles": ["anonymous", "authenticated"] },
     { "route": "/.auth/login/github", "statusCode": 404 },
-    { "route": "/*", "allowedRoles": ["authenticated"] }
+    { "route": "/*", "allowedRoles": ["preview"] }
   ],
   "responseOverrides": {
-    "401": { "statusCode": 302, "redirect": "/.auth/login/aad" }
+    "401": { "statusCode": 302, "redirect": "/.auth/login/aad" },
+    "403": { "statusCode": 302, "redirect": "/sem-acesso.html" }
   },
   "globalHeaders": {
     "X-Content-Type-Options": "nosniff",
@@ -25,5 +16,8 @@
     "Referrer-Policy": "strict-origin-when-cross-origin",
     "Content-Security-Policy": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'"
   },
-  "navigationFallback": { "rewrite": "/index.html" }
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": ["/sem-acesso.html"]
+  }
 }

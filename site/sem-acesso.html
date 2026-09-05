@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SHAAR — sem acesso</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&display=swap">
+<style>
+  :root{ --night:#0A0F1C; --navy:#101828; --aco:#638CAD; --ciano:#60CFE2;
+         --ardosia:#2B4469; --edge:rgba(99,140,173,.22); --body:#AFC0D5; }
+  *{box-sizing:border-box}
+  body{
+    margin:0;min-height:100vh;background:var(--night);color:#fff;
+    font-family:"Manrope",system-ui,sans-serif;font-size:15px;line-height:1.6;
+    display:grid;place-items:center;padding:40px 24px;text-align:center;
+  }
+  .chip{
+    width:60px;height:60px;border-radius:15px;display:grid;place-items:center;
+    background:var(--navy);border:1px solid var(--edge);margin:0 auto 26px;
+  }
+  h1{font-weight:800;font-size:22px;margin:0 0 10px;letter-spacing:-.01em}
+  .regua{height:2px;width:96px;margin:0 auto 18px;border-radius:99px;
+         background:linear-gradient(90deg,var(--ardosia),var(--ciano))}
+  p{color:var(--body);margin:0 0 8px;max-width:46ch}
+  .foot{margin-top:34px;font-size:12.5px;color:var(--aco)}
+  .foot b{color:#fff;font-weight:800;letter-spacing:.2em}
+  a{color:var(--ciano)}
+</style>
+</head>
+<body>
+  <main>
+    <span class="chip" aria-hidden="true">
+      <svg width="30" height="30" viewBox="0 0 48 48">
+        <path d="M11 13 L25 24 L11 35" fill="none" stroke="#60CFE2" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M37 13 L23 24 L37 35" fill="none" stroke="#60CFE2" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </span>
+    <h1>Este portão não está aberto para você</h1>
+    <div class="regua"></div>
+    <p>Sua conta entrou, mas ainda não tem acesso liberado a este ambiente.</p>
+    <p>Fale com o administrador do SHAAR para receber um convite.</p>
+    <p style="margin-top:22px"><a href="/.auth/logout">Sair desta conta</a></p>
+    <div class="foot">SHAAR · by <b>XPTO</b></div>
+  </main>
+</body>
+</html>

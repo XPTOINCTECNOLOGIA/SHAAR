@@ -1,6 +1,7 @@
 name: Deploy SHAAR (Azure Static Web Apps)
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths: ['site/**', 'infra/**', '.github/workflows/**']
