@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 # Sincroniza o diretorio corporativo (Microsoft Entra ID) com a base das
-# microaplicacoes. Roda na vm-supabase, por cron.
+# microaplicacoes. Roda na vm-supabase, por cron, todo dia as 23:00 — fecha o
+# dia, para que quem for admitido hoje possa entrar amanha de manha.
 #
 # Criterio de quem entra: conta de membro, habilitada, COM licenca do
 # Microsoft 365 e com endereco @xptoinc.com.br. Quem nao cumpre nao e trazido.
 #
-# O que a rotina faz:  cria na base quem falta, e liga quem ja existe.
-# O que ela NAO faz:   nao altera cadastro existente, nao define perfil e
-#                      nao abre portao nenhum no SHAAR. Isso e do administrador.
+# O que a rotina faz:  cria na base quem falta, liga quem ja existe, e abre o
+#                      portao do TETELESTAI para quem cria.
+# O que ela NAO faz:   nao altera cadastro existente, nao define perfil e nao
+#                      abre nenhum outro portao. Isso e do administrador.
 #
 # Credenciais em /etc/xpto/sync-diretorio.env (modo 600, dono root):
 #   TENANT_ID=...

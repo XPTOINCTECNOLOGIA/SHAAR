@@ -20,6 +20,7 @@ decisão humana.
 | Faz | Não faz |
 | --- | --- |
 | Cria na base quem falta | Alterar cadastro que já existe |
+| Abre o portão do **TETELESTAI** para quem cria | Abrir qualquer outro portão |
 | Liga a conta do Entra ao cadastro existente, por qualquer endereço conhecido | Definir perfil |
 | Marca quem saiu do critério | Desativar ninguém |
 | Registra tudo em `shaar_directory` | Abrir portão no SHAAR |
@@ -33,6 +34,7 @@ automática. A sincronização entrega a pessoa cadastrada e para aí.
 | --- | --- |
 | `shaar_directory` | Espelho do diretório: uma linha por conta elegível, ligada ao `users.id` |
 | `shaar_directory_ignorar` | Endereços que a rotina não deve trazer, com o motivo |
+| `shaar_directory_vinculo` | Casamentos que o endereço não resolve sozinho |
 | `shaar_sync_diretorio(jsonb, boolean)` | A rotina. Com `false` apenas simula |
 | `shaar_divergencias` | O que não bate entre os dois lados |
 | `shaar_ver_divergencias()` | A mesma coisa, exposta ao super administrador |
@@ -80,8 +82,13 @@ CLIENT_SECRET=<o segredo acima>
 E o agendamento, em `/etc/cron.d/xpto-sync-diretorio`:
 
 ```cron
-17 * * * * root /opt/xpto/sync-diretorio.sh aplicar >> /var/log/xpto-sync-diretorio.log 2>&1
+# Todo dia às 23:00. Quem for admitido durante o dia entra no dia seguinte.
+0 23 * * * root /opt/xpto/sync-diretorio.sh aplicar >> /var/log/xpto-sync-diretorio.log 2>&1
 ```
+
+O horário é deliberado: a rotina fecha o dia. Uma pessoa criada no Entra a
+qualquer hora de hoje está cadastrada e com o portão do TETELESTAI aberto
+antes do expediente de amanhã.
 
 Requer `jq` instalado na máquina.
 
@@ -109,6 +116,24 @@ select * from shaar_divergencias order by situacao, email;
 | `sem cadastro na base` | Está no diretório e a rotina ainda não criou | Rodar com `aplicar` |
 | `sem conta no diretório` | Ativa na base, fora do critério | Verificar licença, ou desativar |
 | `saiu do diretório, ativa na base` | Perdeu licença ou foi desativada no Entra | Provável desligamento — conferir |
+
+## Porta de chegada
+
+Quem a rotina cria entra com o **portão do TETELESTAI aberto** e perfil
+`SEM PERFIL`. É o mínimo para que o primeiro login leve a algum lugar — sem
+isso a pessoa autentica com sucesso e encontra o salão vazio. Todos os demais
+portões ficam fechados, à espera da decisão do administrador.
+
+## Vínculos manuais em vigor
+
+| Endereço no diretório | Pessoa na base | Motivo |
+| --- | --- | --- |
+| `luca.borges@xptoinc.com.br` | `luca.confente@xptoinc.com.br` | O Entra não conhece o segundo endereço; sem o vínculo a rotina criaria uma segunda pessoa |
+
+```sql
+insert into shaar_directory_vinculo (email_diretorio, user_id, motivo)
+values ('novo@xptoinc.com.br', 42, 'motivo');
+```
 
 ## Exceções em vigor
 

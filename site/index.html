@@ -459,7 +459,21 @@
   table.quadro-tab thead th.pessoa{
     position:sticky;left:0;z-index:4;text-align:left;padding-left:16px;min-width:230px;
   }
-  .colapp{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:78px}
+  /* cabecalho da coluna: e um botao, e precisa parecer um */
+  .colapp{
+    display:flex;flex-direction:column;align-items:center;gap:6px;min-width:78px;
+    appearance:none;background:none;border:1px solid transparent;border-radius:9px;
+    padding:7px 6px 5px;margin:0;cursor:pointer;font:inherit;color:inherit;
+    transition:border-color .16s ease,background .16s ease;
+  }
+  .colapp:hover,.colapp:focus-visible{
+    border-color:rgba(96,207,226,.4);background:rgba(96,207,226,.07);outline:none;
+  }
+  .colapp .dica{
+    font-size:7px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--ciano);opacity:0;transition:opacity .16s ease;
+  }
+  .colapp:hover .dica,.colapp:focus-visible .dica{opacity:.85}
   .colapp .mk{
     width:26px;height:26px;border-radius:7px;display:grid;place-items:center;
     background:var(--night);border:1px solid var(--edge);
@@ -1278,13 +1292,19 @@
     const cab = $("quadro-cabecalho");
     cab.innerHTML = `<th class="pessoa">Pessoa</th>` + TODAS().map(k => {
       const off = !LIBERADAS.has(k);
+      // O cabecalho e um botao: clicar nele mexe na coluna inteira de uma vez.
       return `<th class="${off ? "col-off" : ""}">
-        <span class="colapp">
+        <button class="colapp" data-massa="${k}"
+                title="Autorização em massa no ${appName(k)}"
+                aria-label="Abrir ou fechar o ${appName(k)} para todas as pessoas da lista">
           <span class="mk">${mark(k, 16)}</span>
           <span class="nm">${appName(k)}</span>
           ${off ? '<span class="selo-off">desabilitada</span>' : ''}
-        </span></th>`;
+          <span class="dica">em massa</span>
+        </button></th>`;
     }).join("");
+    cab.querySelectorAll("[data-massa]").forEach(b =>
+      b.addEventListener("click", () => abrirGavetaMassa(b.dataset.massa)));
 
     const corpo = $("quadro-corpo");
     const lista = pessoasVisiveis();
@@ -1351,7 +1371,68 @@
     $("gaveta").classList.add("on");
     $("g-fechar").focus();
   }
-  function fecharGaveta(){ $("gaveta").classList.remove("on"); }
+  // Autorizacao em massa: uma coluna inteira, para as pessoas que a lista
+  // mostra agora — o filtro e a busca valem, e a contagem diz quantas sao.
+  function abrirGavetaMassa(app){
+    const lista = pessoasVisiveis();
+    const eu = usuario && usuario.mail;
+    const fechaveis = lista.filter(p => p.mail !== eu);
+    const abertas = lista.filter(p => p.apps[app]).length;
+    const faltam  = lista.length - abertas;
+    alvo = { pessoa:null, app, massa:true, ids:lista.map(p => p.id),
+             idsFecha:fechaveis.map(p => p.id) };
+
+    $("g-titulo").textContent = "Autorização em massa";
+    $("g-quem").textContent =
+      `${lista.length} ${lista.length === 1 ? "pessoa" : "pessoas"} na lista` +
+      (filtroTipo !== "todos" || busca.trim() ? " — o filtro em uso" : "");
+    $("g-mk").innerHTML = mark(app, 19);
+    $("g-app").textContent = appName(app);
+    $("g-estado").innerHTML =
+      `<b class="${abertas ? "on" : "off"}">${abertas} de ${lista.length} já entram</b>` +
+      (faltam ? ` — abrir para todos alcança mais ${faltam}.` : " — a coluna inteira já está aberta.");
+    $("g-salvar").textContent  = `Abrir para ${lista.length}`;
+    $("g-revogar").textContent = `Fechar para ${fechaveis.length}`;
+    $("g-salvar").hidden  = !faltam || !LIBERADAS.has(app);
+    $("g-revogar").hidden = !abertas || !fechaveis.length;
+    $("gaveta").classList.add("on");
+    $("g-fechar").focus();
+  }
+
+  async function mudarEmMassa(fechar){
+    const sessao = lerSessao();
+    const app = alvo.app;
+    const ids = fechar ? alvo.idsFecha : alvo.ids;
+    if (!sessao || !sessao.token || !app || !ids || !ids.length) return;
+    const botoes = [$("g-salvar"), $("g-revogar")];
+    botoes.forEach(b => b.disabled = true);
+    try {
+      const r = await portaoEmMassa(sessao.token, app, ids, !fechar);
+      const dados = Array.isArray(r) ? r[0] : r;
+      const mudaram = (dados && (dados.mudaram ?? dados.shaar_portao_em_massa?.mudaram)) ?? 0;
+      const alvos = new Set(ids);
+      DIRETORIO.forEach(p => {
+        if (!alvos.has(p.id)) return;
+        if (fechar) delete p.apps[app]; else p.apps[app] = true;
+      });
+      fecharGaveta();
+      renderQuadro();
+      toast(mudaram
+        ? `${appName(app)} · portão ${fechar ? "fechado" : "aberto"} para ${mudaram} ${mudaram === 1 ? "pessoa" : "pessoas"}.`
+        : `${appName(app)} · nada a mudar, já estava assim.`);
+    } catch (err) {
+      toast(err.message || "Não foi possível concluir a autorização em massa.");
+    } finally {
+      botoes.forEach(b => b.disabled = false);
+    }
+  }
+
+  function fecharGaveta(){
+    $("gaveta").classList.remove("on");
+    $("g-salvar").textContent = "Abrir portão";
+    $("g-revogar").textContent = "Fechar portão";
+    alvo = { pessoa:null, app:null };
+  }
   $("g-fechar").addEventListener("click", fecharGaveta);
   $("gaveta").addEventListener("click", e => { if (e.target.id === "gaveta") fecharGaveta(); });
   document.addEventListener("keydown", e => { if (e.key === "Escape") fecharGaveta(); });
@@ -1375,8 +1456,8 @@
       botoes.forEach(b => b.disabled = false);
     }
   }
-  $("g-salvar").addEventListener("click",  () => mudarPortao(false));
-  $("g-revogar").addEventListener("click", () => mudarPortao(true));
+  $("g-salvar").addEventListener("click",  () => alvo.massa ? mudarEmMassa(false) : mudarPortao(false));
+  $("g-revogar").addEventListener("click", () => alvo.massa ? mudarEmMassa(true)  : mudarPortao(true));
 
   // ==================================================================
   // BASE REAL — Supabase do ecossistema (api.xptoinc.com.br)
@@ -1426,6 +1507,12 @@
 
   const catalogoCompleto = (token) =>
     api("/rest/v1/rpc/shaar_catalogo", { method: "POST", body: "{}" }, token);
+
+  const portaoEmMassa = (token, appCode, ids, abrir) =>
+    api("/rest/v1/rpc/shaar_portao_em_massa", {
+      method: "POST",
+      body: JSON.stringify({ p_app_code: appCode, p_user_ids: ids, p_abrir: abrir }),
+    }, token);
 
   const mexerPortao = (token, aberto, userId, appCode) =>
     api(`/rest/v1/rpc/shaar_${aberto ? "fechar" : "abrir"}_portao`, {
