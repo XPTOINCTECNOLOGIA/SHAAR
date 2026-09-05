@@ -44,9 +44,25 @@ O casamento entre os dois lados usa **todos** os endereços conhecidos da conta
 — principal, UPN e aliases. É assim que `luca.confente@` casaria com
 `luca.borges@`, e `dpo@` casa com `pedro.junior@`.
 
-## Ligar a rotina automática
+## Estado
 
-Falta um passo, que exige privilégio de administrador do tenant.
+**Em produção desde 05/09/2026.** Roda todo dia às 23:00 de Brasília, na
+`vm-supabase`. Registro em `/var/log/xpto-sync-diretorio.log`.
+
+| | |
+| --- | --- |
+| Identidade | `xpto-sync-diretorio` · `0bf41859-34ea-42d0-ae38-9caad4a5d3b3` |
+| Permissão | Microsoft Graph · `User.Read.All` (somente leitura) |
+| Credencial | `/etc/xpto/sync-diretorio.env` (modo 600, root) · expira em 09/2028 |
+| Script | `/opt/xpto/sync-diretorio.sh` |
+| Agendamento | `/etc/cron.d/xpto-sync-diretorio` |
+
+O segredo tem validade de dois anos. **Renovar antes de setembro de 2028**,
+senão a sincronização para em silêncio.
+
+## Como foi ligada
+
+Registro do que foi feito, caso precise refazer.
 
 ### 1. Criar a identidade da rotina
 
@@ -82,8 +98,11 @@ CLIENT_SECRET=<o segredo acima>
 E o agendamento, em `/etc/cron.d/xpto-sync-diretorio`:
 
 ```cron
-# Todo dia às 23:00. Quem for admitido durante o dia entra no dia seguinte.
-0 23 * * * root /opt/xpto/sync-diretorio.sh aplicar >> /var/log/xpto-sync-diretorio.log 2>&1
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# A maquina roda em UTC. 02:00 UTC = 23:00 em Brasília (UTC-3, sem horário
+# de verão desde 2019). Quem for admitido durante o dia entra no dia seguinte.
+0 2 * * * root /opt/xpto/sync-diretorio.sh aplicar >> /var/log/xpto-sync-diretorio.log 2>&1
 ```
 
 O horário é deliberado: a rotina fecha o dia. Uma pessoa criada no Entra a
