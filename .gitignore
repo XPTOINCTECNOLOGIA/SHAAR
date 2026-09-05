@@ -8,3 +8,5 @@ dist/
 
 # configuracao gerada no deploy — nunca versionada
 site/config.json
+
+docs/auditoria/
