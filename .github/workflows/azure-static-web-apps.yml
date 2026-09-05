@@ -1,13 +1,10 @@
 name: Deploy SHAAR (Azure Static Web Apps)
 
+# Disparo manual apenas, enquanto o secret AZURE_STATIC_WEB_APPS_API_TOKEN nao
+# tiver um token valido do Static Web App. Assim o repositorio nao acumula falha
+# a cada push. Quando o token estiver correto, devolver os gatilhos de push e PR.
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths: ['site/**', 'infra/**', '.github/workflows/**']
-  pull_request:
-    types: [opened, synchronize, reopened, closed]
-    branches: [main]
 
 permissions:
   contents: read
