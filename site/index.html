@@ -268,10 +268,7 @@
   .pmeta{margin-top:32px;text-align:center;display:flex;flex-direction:column;align-items:center}
   .pmeta .regua{width:44px;margin-bottom:12px}
   .pname{font-weight:800;font-size:13.5px;letter-spacing:.2em;text-indent:.2em;line-height:1.25}
-  .prole{
-    margin-top:7px;font-size:9.5px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--ciano);
-  }
-  .pdesc{margin-top:9px;font-size:12px;color:var(--aco);line-height:1.5;font-weight:400}
+  .pdesc{margin-top:11px;font-size:12px;color:var(--aco);line-height:1.5;font-weight:400}
 
   /* ==================================================================
      ACESSO DIRETO — um único portão, que se abre sozinho
@@ -345,12 +342,6 @@
   .grantrow input:checked ~ .miniportao::after{transform:translateX(101%)}
   .grantrow input:checked ~ .miniportao img{opacity:1}
   .grantrow .gn{font-weight:800;font-size:13px;letter-spacing:.14em}
-  .grantrow select{
-    margin-left:auto;background:var(--night);color:var(--body);border:1px solid var(--edge);
-    border-radius:7px;padding:6px 10px;font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer;
-  }
-  .grantrow select:focus{outline:none;border-color:var(--ciano);color:#fff}
-  .grantrow select option{background:var(--navy);color:#fff}
   .invmeta{display:flex;gap:13px;flex-wrap:wrap;align-items:center;margin:24px 0}
   .invmeta select{
     background:var(--night);color:var(--body);border:1px solid var(--edge);border-radius:7px;
@@ -629,10 +620,11 @@
     color:#E0A03C;background:rgba(224,160,60,.14);border-radius:4px;padding:2px 5px;
   }
   td.col-off{background:rgba(10,15,28,.55)}
-  .celula.bloqueada .portaozinho{filter:grayscale(1) brightness(.55)}
-  .celula.bloqueada .papel{
-    color:#6B5A34;text-decoration:line-through;text-decoration-thickness:1px;
-  }
+  .gaveta .estado{font-size:13px;line-height:1.55;color:#9FB2CC;margin:14px 0 6px}
+  .gaveta .estado b{display:block;font-size:14px;margin-bottom:2px}
+  .gaveta .estado b.on{color:var(--ciano)}
+  .gaveta .estado b.off{color:#7C8DA6}
+  .gaveta .nota{font-size:12px;line-height:1.55;color:#61748F;margin:0 0 4px}
 
   /* ---------- toast ---------- */
   .toast{
@@ -801,7 +793,7 @@
   <div class="quadro">
     <span class="eyebrow">Administração · Acessos</span>
     <h2>Quadro de acessos</h2>
-    <div class="sub">Cada linha é uma pessoa, cada coluna é um portão. O que se vê aqui é o <b>acesso efetivo pelo SHAAR</b>: o papel que a base de cada aplicação concede, cruzado com o que o hub tem liberado. Portão aceso, entra. Portão apagado com o papel riscado, a autorização existe na aplicação mas o hub não abre.</div>
+    <div class="sub">Cada linha é uma pessoa, cada coluna é um portão. Uma pergunta só: <b>esta pessoa entra nesta aplicação pelo SHAAR?</b> Portão aceso, entra. O que ela faz lá dentro — papel, perfil, permissão — é assunto de cada aplicação, não do hub.</div>
 
     <div class="filtros">
       <input type="search" id="busca" placeholder="Buscar por nome ou e-mail" aria-label="Buscar pessoa">
@@ -819,10 +811,9 @@
     </div>
 
     <div class="legenda">
-      <span><i class="aberto"></i> portão aberto — entra pelo SHAAR</span>
-      <span><i class="fechado"></i> portão fechado — sem autorização na aplicação</span>
-      <span><i class="fechado"></i> <s>papel riscado</s> — autorizado na aplicação, mas o portão está desabilitado no hub</span>
-      <span>Cada aplicação decide o papel de cada pessoa; o hub decide se o portão abre.</span>
+      <span><i class="aberto"></i> portão aberto — a pessoa entra</span>
+      <span><i class="fechado"></i> portão fechado — a pessoa não entra</span>
+      <span>Coluna marcada <b>desabilitada</b>: o portão está fechado no hub para todos.</span>
     </div>
   </div>
 </section>
@@ -833,11 +824,12 @@
     <h3 id="g-titulo"></h3>
     <div class="quem" id="g-quem"></div>
     <div class="appnome"><span class="mk" id="g-mk"></span><b id="g-app"></b></div>
-    <label class="campo" for="g-papel">Papel nesta aplicação</label>
-    <select id="g-papel"></select>
+    <div class="estado" id="g-estado"></div>
+    <p class="nota">O SHAAR só abre ou fecha o portão. Papel, perfil e permissões
+      dentro da aplicação são definidos lá dentro, pelas regras dela.</p>
     <div class="acoes">
-      <button class="btn btn-ciano" id="g-salvar" type="button">Salvar acesso</button>
-      <button class="btn-revogar" id="g-revogar" type="button">Revogar acesso</button>
+      <button class="btn btn-ciano" id="g-salvar" type="button">Abrir portão</button>
+      <button class="btn-revogar" id="g-revogar" type="button">Fechar portão</button>
       <button class="fechar" id="g-fechar" type="button">Cancelar</button>
     </div>
   </div>
@@ -865,13 +857,13 @@
   <div class="forja">
     <span class="eyebrow">Administração · Convites</span>
     <h2>Convidar usuário externo</h2>
-    <div class="sub">Marque quais portões este convite abre e com qual papel. Ao criar a conta, o acesso já entra em vigor — nada é concedido depois.</div>
+    <div class="sub">Marque quais portões este convite abre. Ao criar a conta, os portões já entram em vigor — nada é concedido depois. O papel dentro de cada aplicação quem define é ela.</div>
     <div class="slab">
       <div class="field">
         <label for="inv-email">E-mail do convidado — o link só vale para ele</label>
         <input id="inv-email" type="email" placeholder="pessoa@empresa.com.br" autocomplete="off">
       </div>
-      <span class="field-label">Aplicações autorizadas e papel em cada uma</span>
+      <span class="field-label">Portões que este convite abre</span>
       <div id="grant-list"></div>
       <div class="invmeta">
         <select aria-label="Validade do convite">
@@ -1075,16 +1067,15 @@
     fetch(url, { mode: "no-cors", cache: "no-store", credentials: "omit" }).catch(() => {});
   }
 
-  function portalEl(key, role){
+  function portalEl(key){
     const b = document.createElement("button");
     b.className = "portal";
-    b.setAttribute("aria-label", `Acessar ${appName(key)} — ${role}`);
+    b.setAttribute("aria-label", `Entrar no ${appName(key)}`);
     b.innerHTML = `
       <span class="gatewrap">${gateHTML(key)}</span>
       <span class="pmeta">
         <span class="regua"></span>
         <span class="pname">${appName(key)}</span>
-        <span class="prole">${role}</span>
         <span class="pdesc">${APPS[key].desc}</span>
       </span>`;
     b.addEventListener("mouseenter", () => aquecer(key));
@@ -1118,7 +1109,7 @@
     $("hello-line").textContent = `${h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite"}, ${p.name.split(" ")[0]}`;
     $("hello-sub").textContent = `${mine.length} ${mine.length === 1 ? "portão aberto" : "portões abertos"} para você.`;
     const c = $("colunata"); c.innerHTML = "";
-    mine.forEach(k => c.appendChild(portalEl(k, p.apps[k])));
+    mine.forEach(k => c.appendChild(portalEl(k)));
     // DNS, TCP e TLS resolvidos de antemao para cada aplicação do usuário
     mine.forEach(k => {
       const url = (APPS[k] || {}).url;
@@ -1142,7 +1133,6 @@
   $("d-cancel").addEventListener("click", e => { e.preventDefault(); show("screen-login"); });
 
   // ---------- convites ----------
-  const ROLES = ["Leitura","Operador(a)","Signatário(a)","Gestor(a)","Admin"];
   const TODAS = () => Object.keys(APPS);
   function renderAdmin(){
     const list = $("grant-list");
@@ -1153,18 +1143,17 @@
       row.innerHTML = `
         <input type="checkbox" data-app="${key}" ${key === "SPHRAGIS" ? "checked" : ""}>
         <span class="miniportao">${mark(key, 15)}</span>
-        <span class="gn">${appName(key)}</span>
-        <select aria-label="Papel no ${appName(key)}">${ROLES.map(r => `<option${r.startsWith("Signat") ? " selected" : ""}>${r}</option>`).join("")}</select>`;
+        <span class="gn">${appName(key)}</span>`;
       list.appendChild(row);
     });
   }
 
-  let grants = { SPHRAGIS: "Signatário(a)" };
+  let grants = { SPHRAGIS: true };
   $("genlink").addEventListener("click", () => {
     const g = {};
     $("grant-list").querySelectorAll(".grantrow").forEach(row => {
       const cb = row.querySelector("input");
-      if (cb.checked) g[cb.dataset.app] = row.querySelector("select").value;
+      if (cb.checked) g[cb.dataset.app] = true;
     });
     if (!Object.keys(g).length){ toast("Selecione ao menos uma aplicação para o convite."); return; }
     grants = g;
@@ -1174,10 +1163,10 @@
 
   $("openinvite").addEventListener("click", () => {
     const box = $("inv-apps"); box.innerHTML = "";
-    Object.entries(grants).forEach(([key, role]) => {
+    Object.keys(grants).forEach(key => {
       const s = document.createElement("span");
       s.className = "chave";
-      s.innerHTML = `<span class="mk">${mark(key, 14)}</span><b>${appName(key)}</b> · ${role}`;
+      s.innerHTML = `<span class="mk">${mark(key, 14)}</span><b>${appName(key)}</b>`;
       box.appendChild(s);
     });
     $("inv-mailshow").textContent = $("inv-email").value || "convidado@exemplo.com";
@@ -1249,11 +1238,12 @@
             id: l.user_id,
             nome: l.full_name || l.email,
             mail: l.email,
-            tipo: l.profile_name || "Sem perfil",
+            tipo: l.profile_name || "Sem perfil",   // perfil interno do TETELESTAI, usado so para achar o super admin
+            kind: l.user_kind || "",
             apps: {},
           });
         }
-        if (l.app_code) porPessoa.get(l.user_id).apps[l.app_code] = l.role || "Acesso";
+        if (l.app_code) porPessoa.get(l.user_id).apps[l.app_code] = true;
       });
       DIRETORIO.length = 0;
       porPessoa.forEach(v => DIRETORIO.push(v));
@@ -1263,15 +1253,23 @@
       return false;
     }
   }
-  const EXTERNOS = ["TERCEIRO","EXTERNO","PARCEIRO","FORNECEDOR","CONVIDADO"];
+  const EXTERNOS = ["TERCEIRO","EXTERNO","PARCEIRO","FORNECEDOR","CONVIDADO","GUEST"];
   const ehExterno = (t) => EXTERNOS.some(x => (t || "").toUpperCase().includes(x));
   const chaveTipo = (t) => ehExterno(t) ? "Terceira" : "Funcionária";
+  // O hub reconhece tres coisas sobre uma pessoa: se administra o proprio hub,
+  // se e da casa ou se e de fora. Cargo e perfil pertencem a cada aplicacao.
+  const ehSuperAdmin = (pes) => /SUPER/i.test(pes.tipo);
+  const ehDeFora     = (pes) => ehExterno(pes.kind) || ehExterno(pes.tipo);
+  const rotuloPessoa = (pes) => ehSuperAdmin(pes) ? "Super admin"
+                             : ehDeFora(pes)     ? "Terceiro(a)"
+                             : "Funcionário(a)";
 
   function pessoasVisiveis(){
     const q = busca.trim().toLowerCase();
     return DIRETORIO.filter(pes => {
-      const casaTipo = filtroTipo === "todos" || chaveTipo(pes.tipo) === filtroTipo
-                       || (filtroTipo === "Funcionária" && pes.tipo === "Super admin");
+      const casaTipo = filtroTipo === "todos"
+                       || (filtroTipo === "Terceira"   && ehDeFora(pes))
+                       || (filtroTipo === "Funcionária" && !ehDeFora(pes));
       const casaBusca = !q || pes.nome.toLowerCase().includes(q) || pes.mail.toLowerCase().includes(q);
       return casaTipo && casaBusca;
     });
@@ -1292,41 +1290,36 @@
     const corpo = $("quadro-corpo");
     const lista = pessoasVisiveis();
     corpo.innerHTML = lista.map((pes, idx) => {
-      const cls = /SUPER/i.test(pes.tipo) ? "sup" : ehExterno(pes.tipo) ? "terc" : "func";
-      const ehSuper = /SUPER/i.test(pes.tipo);
+      const ehSuper = ehSuperAdmin(pes);
+      const cls = ehSuper ? "sup" : ehDeFora(pes) ? "terc" : "func";
       const celulas = TODAS().map(k => {
-        const papel = pes.apps[k];                       // autorização na base da aplicação
+        // O hub nao conhece papel nem perfil: isso e assunto de cada aplicacao.
+        // Aqui so existe uma pergunta — esta pessoa entra por este portao?
         const liberada = LIBERADAS.has(k);
-        const abre = Boolean(papel) && (liberada || ehSuper);   // acesso efetivo pelo hub
-        const rotulo = abre ? papel
-                    : papel ? "bloqueado"
-                    : "—";
-        const titulo = abre ? `${papel} — abre pelo SHAAR`
-                    : papel ? `Autorizado como ${papel} na base, mas ${appName(k)} está desabilitada no hub`
-                    : "Sem autorização";
-        return `<td class="${liberada ? "" : "col-off"}"><button class="celula${!abre && papel ? " bloqueada" : ""}"
+        const abre = Boolean(pes.apps[k]) && (liberada || ehSuper);
+        const titulo = abre ? `Entra no ${appName(k)} pelo SHAAR`
+                    : liberada ? `Não entra no ${appName(k)}`
+                    : `${appName(k)} está desabilitada no hub`;
+        return `<td class="${liberada ? "" : "col-off"}"><button class="celula"
                   data-aberto="${abre ? 1 : 0}" data-pessoa="${DIRETORIO.indexOf(pes)}" data-app="${k}"
-                  title="${titulo}" aria-label="${appName(k)} — ${titulo} — ${pes.nome}">
+                  title="${titulo}" aria-label="${pes.nome} — ${titulo}">
                   <span class="portaozinho"></span>
-                  <span class="papel">${rotulo}</span>
+                  <span class="papel">${abre ? "entra" : "—"}</span>
                 </button></td>`;
       }).join("");
       return `<tr>
         <td class="pessoa"><b>${pes.nome}</b><small>${pes.mail}</small>
-          <span class="tipo ${cls}">${pes.tipo}</span></td>
+          <span class="tipo ${cls}">${rotuloPessoa(pes)}</span></td>
         ${celulas}
       </tr>`;
     }).join("");
 
-    const efetivos = lista.reduce((n, p) => {
-      const sup = /SUPER/i.test(p.tipo);
+    const abertos = lista.reduce((n, p) => {
+      const sup = ehSuperAdmin(p);
       return n + Object.keys(p.apps).filter(k => LIBERADAS.has(k) || sup).length;
     }, 0);
-    const naBase = lista.reduce((n, p) => n + Object.keys(p.apps).length, 0);
-    const bloqueados = naBase - efetivos;
     $("contagem").textContent =
-      `${lista.length} ${lista.length === 1 ? "pessoa" : "pessoas"} · ${efetivos} acessos abertos` +
-      (bloqueados ? ` · ${bloqueados} bloqueados por aplicação desabilitada` : "");
+      `${lista.length} ${lista.length === 1 ? "pessoa" : "pessoas"} · ${abertos} ${abertos === 1 ? "portão aberto" : "portões abertos"}`;
 
     corpo.querySelectorAll(".celula").forEach(c => c.addEventListener("click", () => abrirGaveta(+c.dataset.pessoa, c.dataset.app)));
   }
@@ -1341,22 +1334,30 @@
   let alvo = { pessoa:null, app:null };
   function abrirGaveta(iPessoa, app){
     alvo = { pessoa:iPessoa, app };
-    const pes = DIRETORIO[iPessoa], papel = pes.apps[app];
-    $("g-titulo").textContent = papel ? "Editar acesso" : "Conceder acesso";
+    const pes = DIRETORIO[iPessoa];
+    const ehSuper = ehSuperAdmin(pes);
+    const liberada = LIBERADAS.has(app);
+    const abre = Boolean(pes.apps[app]) && (liberada || ehSuper);
+    $("g-titulo").textContent = abre ? "Fechar portão" : "Abrir portão";
     $("g-quem").textContent = `${pes.nome} · ${pes.mail}`;
     $("g-mk").innerHTML = mark(app, 19);
     $("g-app").textContent = appName(app);
-    $("g-papel").innerHTML = ROLES.map(r => `<option${r === papel ? " selected" : ""}>${r}</option>`).join("");
-    $("g-revogar").hidden = !papel;
+    $("g-estado").innerHTML = abre
+      ? `<b class="on">Portão aberto</b> — esta pessoa entra no ${appName(app)} pelo SHAAR.`
+      : liberada
+        ? `<b class="off">Portão fechado</b> — esta pessoa não entra no ${appName(app)}.`
+        : `<b class="off">${appName(app)} está desabilitada no hub</b> — o portão está fechado para todos.`;
+    $("g-salvar").hidden = abre;
+    $("g-revogar").hidden = !abre;
     $("gaveta").classList.add("on");
-    $("g-papel").focus();
+    $("g-fechar").focus();
   }
   function fecharGaveta(){ $("gaveta").classList.remove("on"); }
   $("g-fechar").addEventListener("click", fecharGaveta);
   $("gaveta").addEventListener("click", e => { if (e.target.id === "gaveta") fecharGaveta(); });
   document.addEventListener("keydown", e => { if (e.key === "Escape") fecharGaveta(); });
 
-  const SEM_ESCRITA = "Conceder e revogar exige uma função de servidor com privilégio — cada aplicação guarda a autorização na sua própria tabela. Por enquanto o Quadro é de leitura.";
+  const SEM_ESCRITA = "Abrir e fechar portão exige uma função de servidor com privilégio — cada aplicação guarda a sua própria lista de quem entra. Por enquanto o Quadro é de leitura.";
   $("g-salvar").addEventListener("click", () => { fecharGaveta(); toast(SEM_ESCRITA); });
   $("g-revogar").addEventListener("click", () => { fecharGaveta(); toast(SEM_ESCRITA); });
 
@@ -1413,7 +1414,7 @@
   function pessoaDeLinhas(linhas, email){
     const primeira = linhas[0] || {};
     const apps = {};
-    linhas.forEach(l => { if (l.app_code) apps[l.app_code] = l.role || "Acesso"; });
+    linhas.forEach(l => { if (l.app_code) apps[l.app_code] = true; });
     return {
       name: primeira.full_name || email,
       mail: primeira.email || email,
