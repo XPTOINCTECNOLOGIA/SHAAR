@@ -494,6 +494,10 @@
     display:inline-block;margin-top:3px;font-size:8.5px;font-weight:800;
     letter-spacing:.12em;text-transform:uppercase;border-radius:4px;padding:2px 7px;
   }
+  .posto{
+    display:block;margin-top:5px;font-size:9.5px;font-weight:700;
+    letter-spacing:.1em;text-transform:uppercase;color:#6B7B90;
+  }
   .tipo.func{color:var(--ciano);background:rgba(96,207,226,.1)}
   .tipo.terc{color:var(--aco);background:rgba(99,140,173,.12)}
   .tipo.sup{color:#101828;background:var(--ciano)}
@@ -1254,6 +1258,10 @@
             mail: l.email,
             tipo: l.profile_name || "Sem perfil",   // perfil interno do TETELESTAI, usado so para achar o super admin
             kind: l.user_kind || "",
+            // cargo e area explicam a ordem hierarquica que a base ja devolve;
+            // o hub nao os usa para decidir nada, so para a lista ser legivel
+            cargo: l.cargo || "",
+            area:  l.area  || "",
             apps: {},
           });
         }
@@ -1327,7 +1335,10 @@
       }).join("");
       return `<tr>
         <td class="pessoa"><b>${pes.nome}</b><small>${pes.mail}</small>
-          <span class="tipo ${cls}">${rotuloPessoa(pes)}</span></td>
+          <span class="tipo ${cls}">${rotuloPessoa(pes)}</span>
+          ${pes.cargo || pes.area
+            ? `<span class="posto">${[pes.cargo, pes.area].filter(Boolean).join(" · ")}</span>`
+            : ""}</td>
         ${celulas}
       </tr>`;
     }).join("");
