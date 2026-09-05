@@ -793,7 +793,7 @@
   <div class="quadro">
     <span class="eyebrow">Administração · Acessos</span>
     <h2>Quadro de acessos</h2>
-    <div class="sub">Cada linha é uma pessoa, cada coluna é um portão. Uma pergunta só: <b>esta pessoa entra nesta aplicação pelo SHAAR?</b> Portão aceso, entra. O que ela faz lá dentro — papel, perfil, permissão — é assunto de cada aplicação, não do hub.</div>
+    <div class="sub">Cada linha é uma pessoa, cada coluna é um portão. Uma pergunta só: <b>esta pessoa entra nesta aplicação pelo SHAAR?</b> Clique numa célula para abrir ou fechar o portão. O que ela faz lá dentro — papel, perfil, permissão — é assunto de cada aplicação, não do hub.</div>
 
     <div class="filtros">
       <input type="search" id="busca" placeholder="Buscar por nome ou e-mail" aria-label="Buscar pessoa">
@@ -812,8 +812,8 @@
 
     <div class="legenda">
       <span><i class="aberto"></i> portão aberto — a pessoa entra</span>
-      <span><i class="fechado"></i> portão fechado — a pessoa não entra</span>
-      <span>Coluna marcada <b>desabilitada</b>: o portão está fechado no hub para todos.</span>
+      <span><i class="fechado"></i> portão fechado — a pessoa não entra, e a aplicação nem aparece para ela</span>
+      <span>Abrir aqui não mexe na base de nenhuma aplicação: dá passagem, e lá dentro valem as regras dela.</span>
     </div>
   </div>
 </section>
@@ -1290,13 +1290,12 @@
     const corpo = $("quadro-corpo");
     const lista = pessoasVisiveis();
     corpo.innerHTML = lista.map((pes, idx) => {
-      const ehSuper = ehSuperAdmin(pes);
-      const cls = ehSuper ? "sup" : ehDeFora(pes) ? "terc" : "func";
+      const cls = ehSuperAdmin(pes) ? "sup" : ehDeFora(pes) ? "terc" : "func";
       const celulas = TODAS().map(k => {
         // O hub nao conhece papel nem perfil: isso e assunto de cada aplicacao.
         // Aqui so existe uma pergunta — esta pessoa entra por este portao?
         const liberada = LIBERADAS.has(k);
-        const abre = Boolean(pes.apps[k]) && (liberada || ehSuper);
+        const abre = Boolean(pes.apps[k]) && liberada;
         const titulo = abre ? `Entra no ${appName(k)} pelo SHAAR`
                     : liberada ? `Não entra no ${appName(k)}`
                     : `${appName(k)} está desabilitada no hub`;
@@ -1314,10 +1313,8 @@
       </tr>`;
     }).join("");
 
-    const abertos = lista.reduce((n, p) => {
-      const sup = ehSuperAdmin(p);
-      return n + Object.keys(p.apps).filter(k => LIBERADAS.has(k) || sup).length;
-    }, 0);
+    const abertos = lista.reduce((n, p) =>
+      n + Object.keys(p.apps).filter(k => LIBERADAS.has(k)).length, 0);
     $("contagem").textContent =
       `${lista.length} ${lista.length === 1 ? "pessoa" : "pessoas"} · ${abertos} ${abertos === 1 ? "portão aberto" : "portões abertos"}`;
 
@@ -1335,9 +1332,9 @@
   function abrirGaveta(iPessoa, app){
     alvo = { pessoa:iPessoa, app };
     const pes = DIRETORIO[iPessoa];
-    const ehSuper = ehSuperAdmin(pes);
     const liberada = LIBERADAS.has(app);
-    const abre = Boolean(pes.apps[app]) && (liberada || ehSuper);
+    const abre = Boolean(pes.apps[app]) && liberada;
+    const souEu = Boolean(usuario && usuario.mail && usuario.mail === pes.mail);
     $("g-titulo").textContent = abre ? "Fechar portão" : "Abrir portão";
     $("g-quem").textContent = `${pes.nome} · ${pes.mail}`;
     $("g-mk").innerHTML = mark(app, 19);
@@ -1347,8 +1344,11 @@
       : liberada
         ? `<b class="off">Portão fechado</b> — esta pessoa não entra no ${appName(app)}.`
         : `<b class="off">${appName(app)} está desabilitada no hub</b> — o portão está fechado para todos.`;
-    $("g-salvar").hidden = abre;
-    $("g-revogar").hidden = !abre;
+    $("g-salvar").hidden = abre || !liberada;
+    // ninguem se tranca do lado de fora: o proprio portao nao se fecha aqui
+    $("g-revogar").hidden = !abre || souEu;
+    if (abre && souEu) $("g-estado").innerHTML +=
+      ' <i>Este é o seu próprio portão — feche-o por outro super administrador.</i>';
     $("gaveta").classList.add("on");
     $("g-fechar").focus();
   }
@@ -1357,9 +1357,27 @@
   $("gaveta").addEventListener("click", e => { if (e.target.id === "gaveta") fecharGaveta(); });
   document.addEventListener("keydown", e => { if (e.key === "Escape") fecharGaveta(); });
 
-  const SEM_ESCRITA = "Abrir e fechar portão exige uma função de servidor com privilégio — cada aplicação guarda a sua própria lista de quem entra. Por enquanto o Quadro é de leitura.";
-  $("g-salvar").addEventListener("click", () => { fecharGaveta(); toast(SEM_ESCRITA); });
-  $("g-revogar").addEventListener("click", () => { fecharGaveta(); toast(SEM_ESCRITA); });
+  // O hub grava na propria lista de portoes; nenhuma base de aplicacao e tocada.
+  async function mudarPortao(fechar){
+    const sessao = lerSessao();
+    const pes = DIRETORIO[alvo.pessoa], app = alvo.app;
+    if (!sessao || !sessao.token || !pes || !app) return;
+    const botoes = [$("g-salvar"), $("g-revogar")];
+    botoes.forEach(b => b.disabled = true);
+    try {
+      await mexerPortao(sessao.token, fechar, pes.id, app);
+      if (fechar) delete pes.apps[app]; else pes.apps[app] = true;
+      fecharGaveta();
+      renderQuadro();
+      toast(`${appName(app)} · portão ${fechar ? "fechado" : "aberto"} para ${pes.nome}.`);
+    } catch (err) {
+      toast(err.message || "Não foi possível mudar o portão.");
+    } finally {
+      botoes.forEach(b => b.disabled = false);
+    }
+  }
+  $("g-salvar").addEventListener("click",  () => mudarPortao(false));
+  $("g-revogar").addEventListener("click", () => mudarPortao(true));
 
   // ==================================================================
   // BASE REAL — Supabase do ecossistema (api.xptoinc.com.br)
@@ -1409,6 +1427,12 @@
 
   const catalogoCompleto = (token) =>
     api("/rest/v1/rpc/shaar_catalogo", { method: "POST", body: "{}" }, token);
+
+  const mexerPortao = (token, aberto, userId, appCode) =>
+    api(`/rest/v1/rpc/shaar_${aberto ? "fechar" : "abrir"}_portao`, {
+      method: "POST",
+      body: JSON.stringify({ p_user_id: userId, p_app_code: appCode }),
+    }, token);
 
   // converte as linhas da base no formato que as telas ja usam
   function pessoaDeLinhas(linhas, email){
