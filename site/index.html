@@ -1050,6 +1050,18 @@
     show("screen-login");
   }));
 
+  // Container Apps escalam a zero: sem trafego, nao ha instancia rodando e o
+  // proximo acesso paga o custo de subir o container. Ao passar o mouse num
+  // portao, mandamos uma requisicao leve para a aplicacao — quando o clique
+  // vier, ela ja estara de pe. Uma vez por aplicacao, por sessao.
+  const aquecidas = new Set();
+  function aquecer(key){
+    const url = (APPS[key] || {}).url;
+    if (!url || aquecidas.has(key)) return;
+    aquecidas.add(key);
+    fetch(url, { mode: "no-cors", cache: "no-store", credentials: "omit" }).catch(() => {});
+  }
+
   function portalEl(key, role){
     const b = document.createElement("button");
     b.className = "portal";
@@ -1062,11 +1074,14 @@
         <span class="prole">${role}</span>
         <span class="pdesc">${APPS[key].desc}</span>
       </span>`;
+    b.addEventListener("mouseenter", () => aquecer(key));
+    b.addEventListener("focus", () => aquecer(key));
     b.addEventListener("click", () => {
       const g = b.querySelector(".gate");
       g.classList.add("aberto");
-      setTimeout(() => abrirApp(key), 420);
-      setTimeout(() => g.classList.remove("aberto"), 2600);
+      // navega enquanto o portao ainda abre: o navegador so troca de pagina
+      // quando a resposta chega, entao a animacao continua visivel
+      setTimeout(() => abrirApp(key), 160);
     });
     return b;
   }
@@ -1091,16 +1106,25 @@
     $("hello-sub").textContent = `${mine.length} ${mine.length === 1 ? "portão aberto" : "portões abertos"} para você.`;
     const c = $("colunata"); c.innerHTML = "";
     mine.forEach(k => c.appendChild(portalEl(k, p.apps[k])));
+    // DNS, TCP e TLS resolvidos de antemao para cada aplicação do usuário
+    mine.forEach(k => {
+      const url = (APPS[k] || {}).url;
+      if (!url) return;
+      const l = document.createElement("link");
+      l.rel = "preconnect"; l.href = new URL(url).origin; l.crossOrigin = "";
+      document.head.appendChild(l);
+    });
     show("screen-hub");
     montarNav("screen-hub");
   }
 
   function direto(key, p){
+    aquecer(key);                            // sobe o container enquanto o portão abre
     $("d-wrap").innerHTML = gateHTML(key);   // recria para reiniciar a animação
     $("d-title").textContent = appName(key);
     $("d-sub").textContent = `Olá, ${p.name.split(" ")[0]} — sua sessão XPTO já está autenticada.`;
     show("screen-direto");
-    timer = setTimeout(() => { abrirApp(key); timer = null; }, 2900);
+    timer = setTimeout(() => { abrirApp(key); timer = null; }, 1400);
   }
   $("d-cancel").addEventListener("click", e => { e.preventDefault(); show("screen-login"); });
 
