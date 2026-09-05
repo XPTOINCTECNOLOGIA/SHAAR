@@ -26,7 +26,7 @@ jobs:
       - name: Publicar site/ no swa-shaar (reusa scripts/deploy-azure.sh)
         env:
           SUPABASE_URL: https://api.xptoinc.com.br
-          SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2bmZpZnhpcXZ6dGN3ZWdheW9zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3ODg0MjEsImV4cCI6MjEwMjM2NDQyMX0.1RQNgYjj9Zhg4YOm9m0kKTQ7Sk3MYemJ_bXOFoXVE1U
+          SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2bmZpZnhpcXZ6dGN3ZWdheW9zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3ODg0MjEsImV4cCI6MjEwMjM2NDQyMX0.DSOSXSfxHNiIgMOy-pJMPQuMDd4JJmyhzG_9jGxnt2c
         run: |
           chmod +x scripts/deploy-azure.sh
           ./scripts/deploy-azure.sh
