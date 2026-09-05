@@ -798,7 +798,7 @@
     <div class="filtros">
       <input type="search" id="busca" placeholder="Buscar por nome ou e-mail" aria-label="Buscar pessoa">
       <button class="chip on" data-filtro="todos">Todos</button>
-      <button class="chip" data-filtro="Funcionária">Funcionários</button>
+      <button class="chip" data-filtro="TEAM">TEAM XPTO</button>
       <button class="chip" data-filtro="Terceira">Terceiros</button>
       <span class="contagem" id="contagem"></span>
     </div>
@@ -1255,21 +1255,20 @@
   }
   const EXTERNOS = ["TERCEIRO","EXTERNO","PARCEIRO","FORNECEDOR","CONVIDADO","GUEST"];
   const ehExterno = (t) => EXTERNOS.some(x => (t || "").toUpperCase().includes(x));
-  const chaveTipo = (t) => ehExterno(t) ? "Terceira" : "Funcionária";
   // O hub reconhece tres coisas sobre uma pessoa: se administra o proprio hub,
   // se e da casa ou se e de fora. Cargo e perfil pertencem a cada aplicacao.
   const ehSuperAdmin = (pes) => /SUPER/i.test(pes.tipo);
   const ehDeFora     = (pes) => ehExterno(pes.kind) || ehExterno(pes.tipo);
   const rotuloPessoa = (pes) => ehSuperAdmin(pes) ? "Super admin"
                              : ehDeFora(pes)     ? "Terceiro(a)"
-                             : "Funcionário(a)";
+                             : "TEAM XPTO";
 
   function pessoasVisiveis(){
     const q = busca.trim().toLowerCase();
     return DIRETORIO.filter(pes => {
       const casaTipo = filtroTipo === "todos"
                        || (filtroTipo === "Terceira"   && ehDeFora(pes))
-                       || (filtroTipo === "Funcionária" && !ehDeFora(pes));
+                       || (filtroTipo === "TEAM"     && !ehDeFora(pes));
       const casaBusca = !q || pes.nome.toLowerCase().includes(q) || pes.mail.toLowerCase().includes(q);
       return casaTipo && casaBusca;
     });
