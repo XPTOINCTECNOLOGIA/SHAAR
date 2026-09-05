@@ -1,0 +1,55 @@
+name: DB migrations -> Azure
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'db/azure-migrations/**.sql'
+  workflow_dispatch:
+concurrency:
+  group: azure-db-migrate
+  cancel-in-progress: false
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    name: Aplicar migrations no Azure
+    steps:
+      - uses: actions/checkout@v4
+      - name: Login no Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Aplicar migrations pendentes
+        env:
+          REPO: ${{ github.event.repository.name }}
+          RG: rg-xpto-plataforma
+          VM: vm-supabase
+        run: |
+          set -euo pipefail
+          DIR=db/azure-migrations
+          if ! ls "$DIR"/*.sql >/dev/null 2>&1; then
+            echo "Sem migrations em $DIR — nada a fazer."; exit 0
+          fi
+          echo "Repositorio: $REPO"
+          APPLIED=$(az vm run-command invoke -g "$RG" -n "$VM" --command-id RunShellScript \
+            --scripts "PGPW=\$(grep '^POSTGRES_PASSWORD=' /opt/supa/.env | cut -d= -f2-); echo '===A==='; docker exec -e PGPASSWORD=\"\$PGPW\" supabase-db psql -U postgres -h 127.0.0.1 -tAc \"select filename from public._xpto_migrations where repo='$REPO'\"; echo '===B==='" \
+            --query "value[0].message" -o tsv 2>/dev/null | awk '/===A===/{f=1;next} /===B===/{f=0} f' | sed '/^[[:space:]]*$/d' || true)
+          echo "Ja aplicadas neste repo: $(printf '%s\n' "$APPLIED" | grep -c . || true)"
+          for f in $(ls "$DIR"/*.sql | sort); do
+            base=$(basename "$f")
+            if printf '%s\n' "$APPLIED" | grep -qxF "$base"; then
+              echo "  ja aplicada: $base"; continue
+            fi
+            echo "  APLICANDO: $base"
+            B64=$(base64 -w0 "$f")
+            SUM=$(sha256sum "$f" | cut -d' ' -f1)
+            REMOTE="set -e
+          PGPW=\$(grep '^POSTGRES_PASSWORD=' /opt/supa/.env | cut -d= -f2-)
+          echo '$B64' | base64 -d > /tmp/xmig.sql
+          docker exec -i -e PGPASSWORD=\"\$PGPW\" supabase-db psql -U postgres -h 127.0.0.1 --single-transaction -v ON_ERROR_STOP=1 -q -f - < /tmp/xmig.sql
+          docker exec -e PGPASSWORD=\"\$PGPW\" supabase-db psql -U postgres -h 127.0.0.1 -q -c \"insert into public._xpto_migrations(repo,filename,checksum) values('$REPO','$base','$SUM') on conflict do nothing\"
+          echo XMIG_OK"
+            OUT=$(az vm run-command invoke -g "$RG" -n "$VM" --command-id RunShellScript --scripts "$REMOTE" --query "value[0].message" -o tsv 2>/dev/null)
+            echo "$OUT"
+            echo "$OUT" | grep -q XMIG_OK || { echo "FALHOU ao aplicar $base"; exit 1; }
+          done
+          echo "OK — migrations aplicadas."
