@@ -3,6 +3,18 @@
   "trailingSlash": "auto",
   "routes": [
     {
+      "route": "/config.js",
+      "headers": {
+        "cache-control": "no-cache, no-store, must-revalidate"
+      }
+    },
+    {
+      "route": "/index.html",
+      "headers": {
+        "cache-control": "no-cache, must-revalidate"
+      }
+    },
+    {
       "route": "/.auth/login/github",
       "statusCode": 404
     },

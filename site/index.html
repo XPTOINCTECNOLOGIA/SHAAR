@@ -613,6 +613,15 @@
   }
   @keyframes pulsar{0%,100%{opacity:.25;transform:scale(.8)}50%{opacity:1;transform:scale(1.15)}}
 
+  .faixademo{
+    position:sticky;top:0;z-index:61;
+    display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;
+    padding:10px 20px;background:#E0A03C;color:#231704;
+    font-size:13px;font-weight:600;text-align:center;
+  }
+  .faixademo strong{font-weight:800;letter-spacing:.12em;font-size:11.5px}
+  .faixademo a{color:#231704;font-weight:800;text-decoration:underline}
+
   /* ---------- toast ---------- */
   .toast{
     position:fixed;left:50%;bottom:28px;transform:translate(-50%,18px);
@@ -640,6 +649,11 @@
   }
 </style>
 
+<div class="faixademo" id="faixademo" hidden>
+  <strong>AMBIENTE DE DEMONSTRAÇÃO</strong>
+  <span>Dados fictícios, sem conexão com a base do ecossistema.</span>
+  <a href="https://shaar.xptoinc.com.br">Abrir o SHAAR real →</a>
+</div>
 <div class="demobar" id="demobar" hidden>
   <span class="tag">Demonstração</span>
   <span class="hint">Sem conexão com a base — personas fictícias:</span>
@@ -1008,6 +1022,7 @@
   (async function iniciar(){
     if (!AO_VIVO){
       // sem base configurada: modo demonstracao com personas
+      $("faixademo").hidden = false;
       $("demobar").hidden = false;
       document.querySelector('.persona[data-p="ana"]').classList.add("active");
       $("em").value = PERSONAS.ana.mail;
