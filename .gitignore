@@ -5,3 +5,6 @@ dist/
 .azure/
 *.log
 .DS_Store
+
+# configuracao gerada no deploy — nunca versionada
+site/config.js

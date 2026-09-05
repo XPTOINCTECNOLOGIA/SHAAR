@@ -2,22 +2,44 @@
   "$schema": "https://json.schemastore.org/staticwebapp.config.json",
   "trailingSlash": "auto",
   "routes": [
-    { "route": "/sem-acesso.html", "allowedRoles": ["anonymous", "authenticated"] },
-    { "route": "/.auth/login/github", "statusCode": 404 },
-    { "route": "/*", "allowedRoles": ["preview"] }
+    {
+      "route": "/sem-acesso.html",
+      "allowedRoles": [
+        "anonymous",
+        "authenticated"
+      ]
+    },
+    {
+      "route": "/.auth/login/github",
+      "statusCode": 404
+    },
+    {
+      "route": "/*",
+      "allowedRoles": [
+        "preview"
+      ]
+    }
   ],
   "responseOverrides": {
-    "401": { "statusCode": 302, "redirect": "/.auth/login/aad" },
-    "403": { "statusCode": 302, "redirect": "/sem-acesso.html" }
+    "401": {
+      "statusCode": 302,
+      "redirect": "/.auth/login/aad"
+    },
+    "403": {
+      "statusCode": 302,
+      "redirect": "/sem-acesso.html"
+    }
   },
   "globalHeaders": {
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
     "Referrer-Policy": "strict-origin-when-cross-origin",
-    "Content-Security-Policy": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'"
+    "Content-Security-Policy": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self' https://api.xptoinc.com.br"
   },
   "navigationFallback": {
     "rewrite": "/index.html",
-    "exclude": ["/sem-acesso.html"]
+    "exclude": [
+      "/sem-acesso.html"
+    ]
   }
 }

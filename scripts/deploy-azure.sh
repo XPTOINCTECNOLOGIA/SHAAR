@@ -25,10 +25,26 @@ if [ "${#TOKEN}" -lt 40 ]; then
   exit 1
 fi
 
+# Configuracao do front. A chave anonima vem do ambiente e nunca entra no
+# repositorio. Defina SUPABASE_ANON_KEY antes de publicar; sem ela o site sobe
+# em modo demonstracao, com personas ficticias e sem tocar na base.
+BASE_URL="${SUPABASE_URL:-https://api.xptoinc.com.br}"
+if [ -n "${SUPABASE_ANON_KEY:-}" ]; then
+  cat > "$RAIZ/site/config.js" <<CFG
+window.SHAAR_CONFIG = { url: "$BASE_URL", anonKey: "$SUPABASE_ANON_KEY" };
+CFG
+  echo "Modo: conectado a $BASE_URL"
+else
+  echo 'window.SHAAR_CONFIG = {};' > "$RAIZ/site/config.js"
+  echo "Modo: DEMONSTRACAO (defina SUPABASE_ANON_KEY para conectar a base)"
+fi
+
 npx --yes @azure/static-web-apps-cli@latest deploy "$RAIZ/site" \
   --deployment-token "$TOKEN" \
   --env "$AMBIENTE" \
   --no-use-keychain
 
 echo
+rm -f "$RAIZ/site/config.js"
+
 echo "Endereco: https://$(az staticwebapp show -n "$APP" -g "$GRUPO" --query defaultHostname -o tsv)"

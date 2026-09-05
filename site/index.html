@@ -1,4 +1,5 @@
 <title>SHAAR</title>
+<script src="config.js"></script>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;600;700;800&display=swap">
 <style>
   /*  SHAAR by XPTO — hub de acesso do ecossistema
@@ -598,6 +599,20 @@
     .quadro{padding:30px 14px 60px}
   }
 
+  .erro{
+    margin:16px 0 0;padding:11px 13px;border-radius:8px;font-size:13px;
+    color:#FFD3C6;background:rgba(224,120,86,.12);border:1px solid rgba(224,120,86,.4);
+  }
+  .carregando{
+    display:flex;align-items:center;justify-content:center;gap:12px;
+    min-height:calc(100vh - 45px);color:var(--aco);font-size:14px;
+  }
+  .carregando .pulso{
+    width:10px;height:10px;border-radius:99px;background:var(--ciano);
+    animation:pulsar 1.1s ease-in-out infinite;
+  }
+  @keyframes pulsar{0%,100%{opacity:.25;transform:scale(.8)}50%{opacity:1;transform:scale(1.15)}}
+
   /* ---------- toast ---------- */
   .toast{
     position:fixed;left:50%;bottom:28px;transform:translate(-50%,18px);
@@ -625,9 +640,9 @@
   }
 </style>
 
-<div class="demobar">
-  <span class="tag">Mockup</span>
-  <span class="hint">Troque o usuário para ver cada cenário:</span>
+<div class="demobar" id="demobar" hidden>
+  <span class="tag">Demonstração</span>
+  <span class="hint">Sem conexão com a base — personas fictícias:</span>
   <button class="persona" data-p="ana"><b>Ana</b> <small>· funcionária, 5 apps</small></button>
   <button class="persona" data-p="bruno"><b>Bruno</b> <small>· terceiro, 2 apps</small></button>
   <button class="persona" data-p="carla"><b>Carla</b> <small>· terceira, 1 app</small></button>
@@ -700,6 +715,7 @@
         <svg width="13" height="13" viewBox="0 0 23 23" aria-hidden="true"><rect x="1" y="1" width="10" height="10" fill="#f25022"/><rect x="12" y="1" width="10" height="10" fill="#7fba00"/><rect x="1" y="12" width="10" height="10" fill="#00a4ef"/><rect x="12" y="12" width="10" height="10" fill="#ffb900"/></svg>
         Entrar com SSO XPTO
       </button>
+      <p class="erro" id="login-erro" hidden></p>
       <p class="fineprint">Esqueceu a senha? <a href="#" onclick="return false">Recuperar acesso</a></p>
     </form>
 
@@ -986,8 +1002,37 @@
       show("screen-login");
     });
   });
-  document.querySelector('.persona[data-p="ana"]').classList.add("active");
-  $("em").value = PERSONAS.ana.mail; $("pw").value = "demo-senha";
+  // ==================================================================
+  // INICIALIZACAO
+  // ==================================================================
+  (async function iniciar(){
+    if (!AO_VIVO){
+      // sem base configurada: modo demonstracao com personas
+      $("demobar").hidden = false;
+      document.querySelector('.persona[data-p="ana"]').classList.add("active");
+      $("em").value = PERSONAS.ana.mail;
+      $("pw").value = "demo-senha";
+      return;
+    }
+    // volta do SSO tem prioridade
+    if (await absorverRetornoSSO()) return;
+
+    // sessao ainda valida nesta aba
+    const sessao = lerSessao();
+    if (sessao && sessao.token){
+      try {
+        const linhas = await minhasApps(sessao.token);
+        if (linhas && linhas.length){
+          absorverCatalogo(linhas);
+          const pessoa = pessoaDeLinhas(linhas, sessao.email || "");
+          PERSONAS.aovivo = pessoa; current = "aovivo";
+          route(pessoa);
+          return;
+        }
+      } catch (e) { limparSessao(); }
+    }
+    show("screen-login");
+  })();
 
   function route(p){
     const mine = Object.keys(p.apps);
@@ -996,21 +1041,81 @@
 
   // acessar: o portão do SHAAR se abre e a luz toma a tela
   let lock = false;
-  function afterLogin(){
-    if (lock) return;
-    lock = true;
+  function animarEntrada(depois){
     const g = $("login-gate");
     g.classList.remove("entreaberto"); g.classList.add("aberto");
     setTimeout(() => $("flash").classList.add("on"), 340);
-    setTimeout(() => {
-      route(PERSONAS[current]);
-      $("flash").classList.remove("on");
-      lock = false;
-    }, 980);
+    setTimeout(() => { depois(); $("flash").classList.remove("on"); lock = false; }, 980);
   }
+
+  async function afterLogin(){
+    if (lock) return;
+    lock = true;
+    $("login-erro").hidden = true;
+
+    if (!AO_VIVO){                       // demonstração, sem base
+      animarEntrada(() => route(PERSONAS[current]));
+      return;
+    }
+
+    const email = $("em").value.trim(), senha = $("pw").value;
+    if (!email || !senha){
+      mostrarErroLogin("Informe e-mail e senha."); lock = false; return;
+    }
+    const botao = $("loginform").querySelector('button[type="submit"]');
+    const rotulo = botao.textContent;
+    botao.textContent = "Entrando…"; botao.disabled = true;
+    try {
+      const pessoa = await entrarComSenhaEChegar(email, senha);
+      animarEntrada(() => route(pessoa));
+    } catch (err) {
+      mostrarErroLogin(err.message || "Não foi possível entrar.");
+      lock = false;
+    } finally {
+      botao.textContent = rotulo; botao.disabled = false;
+    }
+  }
+  const entrarComSenhaEChegar = (email, senha) => entrarAoVivo(email, senha);
+
   $("loginform").addEventListener("submit", e => { e.preventDefault(); afterLogin(); });
-  $("ssobtn").addEventListener("click", afterLogin);
-  document.querySelectorAll(".sair").forEach(b => b.addEventListener("click", () => show("screen-login")));
+
+  // SSO XPTO: entra pelo Entra ID quando o provedor estiver registrado no
+  // GoTrue. A autorizacao continua vindo da base do TETELESTAI.
+  $("ssobtn").addEventListener("click", () => {
+    if (!AO_VIVO){ afterLogin(); return; }
+    const volta = encodeURIComponent(window.location.origin + window.location.pathname);
+    window.location.href = `${CFG.url}/auth/v1/authorize?provider=azure&redirect_to=${volta}`;
+  });
+
+  // volta do SSO: o token chega no fragmento da URL
+  async function absorverRetornoSSO(){
+    if (!AO_VIVO || !window.location.hash.includes("access_token")) return false;
+    const p = new URLSearchParams(window.location.hash.slice(1));
+    const token = p.get("access_token");
+    history.replaceState(null, "", window.location.pathname);
+    if (!token) return false;
+    try {
+      const linhas = await minhasApps(token);
+      if (!linhas || !linhas.length){
+        mostrarErroLogin("Você entrou, mas nenhuma aplicação está liberada para a sua conta.");
+        return false;
+      }
+      absorverCatalogo(linhas);
+      const pessoa = pessoaDeLinhas(linhas, (linhas[0] || {}).email || "");
+      guardarSessao({ token, refresh: p.get("refresh_token"), email: pessoa.mail });
+      PERSONAS.aovivo = pessoa; current = "aovivo";
+      route(pessoa);
+      return true;
+    } catch (err) {
+      mostrarErroLogin(err.message || "Não foi possível concluir o acesso.");
+      return false;
+    }
+  }
+  document.querySelectorAll(".sair").forEach(b => b.addEventListener("click", () => {
+    limparSessao();
+    if (AO_VIVO){ $("em").value = ""; $("pw").value = ""; $("login-erro").hidden = true; }
+    show("screen-login");
+  }));
 
   function portalEl(key, role){
     const b = document.createElement("button");
@@ -1027,7 +1132,7 @@
     b.addEventListener("click", () => {
       const g = b.querySelector(".gate");
       g.classList.add("aberto");
-      setTimeout(() => toast(`Abrindo ${appName(key)}… (redirecionaria para ${key.toLowerCase()}.xpto.com.br com a sessão ativa)`), 420);
+      setTimeout(() => abrirApp(key), 420);
       setTimeout(() => g.classList.remove("aberto"), 2600);
     });
     return b;
@@ -1051,10 +1156,7 @@
     $("d-title").textContent = appName(key);
     $("d-sub").textContent = `Olá, ${p.name.split(" ")[0]} — sua sessão XPTO já está autenticada.`;
     show("screen-direto");
-    timer = setTimeout(() => {
-      toast(`(demo) redirecionaria para ${key.toLowerCase()}.xpto.com.br com a sessão ativa`);
-      timer = null;
-    }, 2900);
+    timer = setTimeout(() => { abrirApp(key); timer = null; }, 2900);
   }
   $("d-cancel").addEventListener("click", e => { e.preventDefault(); show("screen-login"); });
 
@@ -1134,7 +1236,7 @@
       nav.querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
         const destino = b.dataset.goto;
         if (destino === "screen-hub")   { const p = PERSONAS[current]; salao(p, Object.keys(p.apps)); }
-        if (destino === "screen-quadro"){ renderQuadro(); show("screen-quadro"); }
+        if (destino === "screen-quadro"){ carregarQuadroReal().then(() => { renderQuadro(); show("screen-quadro"); }); }
         if (destino === "screen-admin") { renderAdmin();  show("screen-admin");  }
         montarNav(destino);
       }));
@@ -1142,7 +1244,38 @@
   }
 
   let filtroTipo = "todos", busca = "";
-  const chaveTipo = (t) => t.startsWith("Funcion") ? "Funcionária" : t === "Super admin" ? "Super admin" : "Terceira";
+
+  // Quadro alimentado pela base: shaar_quadro() so responde a nivel 100.
+  async function carregarQuadroReal(){
+    if (!AO_VIVO) return false;
+    const sessao = lerSessao();
+    if (!sessao || !sessao.token) return false;
+    try {
+      const linhas = await quadroCompleto(sessao.token);
+      const porPessoa = new Map();
+      linhas.forEach(l => {
+        if (!porPessoa.has(l.user_id)){
+          porPessoa.set(l.user_id, {
+            id: l.user_id,
+            nome: l.full_name || l.email,
+            mail: l.email,
+            tipo: l.profile_name || "Sem perfil",
+            apps: {},
+          });
+        }
+        if (l.app_code) porPessoa.get(l.user_id).apps[l.app_code] = l.role || "Acesso";
+      });
+      DIRETORIO.length = 0;
+      porPessoa.forEach(v => DIRETORIO.push(v));
+      return true;
+    } catch (err) {
+      toast(err.message || "Não foi possível carregar o quadro.");
+      return false;
+    }
+  }
+  const EXTERNOS = ["TERCEIRO","EXTERNO","PARCEIRO","FORNECEDOR","CONVIDADO"];
+  const ehExterno = (t) => EXTERNOS.some(x => (t || "").toUpperCase().includes(x));
+  const chaveTipo = (t) => ehExterno(t) ? "Terceira" : "Funcionária";
 
   function pessoasVisiveis(){
     const q = busca.trim().toLowerCase();
@@ -1163,7 +1296,7 @@
     const corpo = $("quadro-corpo");
     const lista = pessoasVisiveis();
     corpo.innerHTML = lista.map((pes, idx) => {
-      const cls = pes.tipo === "Super admin" ? "sup" : pes.tipo.startsWith("Funcion") ? "func" : "terc";
+      const cls = /SUPER/i.test(pes.tipo) ? "sup" : ehExterno(pes.tipo) ? "terc" : "func";
       const celulas = TODAS().map(k => {
         const papel = pes.apps[k];
         const aberto = papel ? 1 : 0;
@@ -1211,18 +1344,122 @@
   $("gaveta").addEventListener("click", e => { if (e.target.id === "gaveta") fecharGaveta(); });
   document.addEventListener("keydown", e => { if (e.key === "Escape") fecharGaveta(); });
 
+  const SEM_ESCRITA = "Conceder e revogar exige uma função de servidor com privilégio — cada aplicação guarda a autorização na sua própria tabela. Por enquanto o Quadro é de leitura.";
   $("g-salvar").addEventListener("click", () => {
+    if (AO_VIVO){ fecharGaveta(); toast(SEM_ESCRITA); return; }
     const pes = DIRETORIO[alvo.pessoa];
     pes.apps[alvo.app] = $("g-papel").value;
     fecharGaveta(); renderQuadro();
     toast(`${appName(alvo.app)} aberto para ${pes.nome.split(" ")[0]} como ${pes.apps[alvo.app]}.`);
   });
   $("g-revogar").addEventListener("click", () => {
+    if (AO_VIVO){ fecharGaveta(); toast(SEM_ESCRITA); return; }
     const pes = DIRETORIO[alvo.pessoa];
     delete pes.apps[alvo.app];
     fecharGaveta(); renderQuadro();
     toast(`Acesso de ${pes.nome.split(" ")[0]} ao ${appName(alvo.app)} revogado.`);
   });
+
+  // ==================================================================
+  // BASE REAL — Supabase do ecossistema (api.xptoinc.com.br)
+  // A configuracao vem de config.js, gerado no deploy. Sem chave no repositorio.
+  // ==================================================================
+  const CFG = window.SHAAR_CONFIG || {};
+  const AO_VIVO = Boolean(CFG.url && CFG.anonKey);
+  const SESSAO = "shaar.sessao";
+
+  const guardarSessao = (s) => { try { sessionStorage.setItem(SESSAO, JSON.stringify(s)); } catch (e) {} };
+  const lerSessao = () => { try { return JSON.parse(sessionStorage.getItem(SESSAO) || "null"); } catch (e) { return null; } };
+  const limparSessao = () => { try { sessionStorage.removeItem(SESSAO); } catch (e) {} };
+
+  async function api(caminho, opcoes = {}, token){
+    const r = await fetch(`${CFG.url}${caminho}`, {
+      ...opcoes,
+      headers: {
+        "apikey": CFG.anonKey,
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(opcoes.headers || {}),
+      },
+    });
+    const texto = await r.text();
+    let corpo = null;
+    try { corpo = texto ? JSON.parse(texto) : null; } catch (e) { corpo = texto; }
+    if (!r.ok){
+      const msg = (corpo && (corpo.error_description || corpo.msg || corpo.message || corpo.error)) || `Falha ${r.status}`;
+      throw new Error(msg);
+    }
+    return corpo;
+  }
+
+  const entrarComSenha = (email, senha) =>
+    api("/auth/v1/token?grant_type=password", {
+      method: "POST",
+      body: JSON.stringify({ email, password: senha }),
+    });
+
+  const minhasApps = (token) =>
+    api("/rest/v1/rpc/shaar_minhas_apps", { method: "POST", body: "{}" }, token);
+
+  const quadroCompleto = (token) =>
+    api("/rest/v1/rpc/shaar_quadro", { method: "POST", body: "{}" }, token);
+
+  // converte as linhas da base no formato que as telas ja usam
+  function pessoaDeLinhas(linhas, email){
+    const primeira = linhas[0] || {};
+    const apps = {};
+    linhas.forEach(l => { if (l.app_code) apps[l.app_code] = l.role || "Acesso"; });
+    return {
+      name: primeira.full_name || email,
+      mail: primeira.email || email,
+      kind: primeira.profile_name || "Usuário",
+      super: (primeira.profile_level || 0) >= 100,
+      nivel: primeira.profile_level || 0,
+      apps,
+    };
+  }
+
+  // o catalogo passa a vir do banco; a identidade visual continua local
+  function absorverCatalogo(linhas){
+    linhas.forEach(l => {
+      if (!l.app_code) return;
+      const atual = APPS[l.app_code] || {};
+      APPS[l.app_code] = {
+        ...atual,
+        name: l.app_name || atual.name,
+        desc: l.app_description || atual.desc,
+        url: l.app_url,
+      };
+    });
+  }
+
+  async function entrarAoVivo(email, senha){
+    const sessao = await entrarComSenha(email, senha);
+    const linhas = await minhasApps(sessao.access_token);
+    if (!linhas || !linhas.length){
+      limparSessao();
+      throw new Error("Sua conta existe, mas nenhuma aplicação está liberada para você. Fale com o administrador.");
+    }
+    absorverCatalogo(linhas);
+    const pessoa = pessoaDeLinhas(linhas, email);
+    guardarSessao({ token: sessao.access_token, refresh: sessao.refresh_token, email });
+    PERSONAS.aovivo = pessoa;
+    current = "aovivo";
+    return pessoa;
+  }
+
+  function mostrarErroLogin(msg){
+    const e = $("login-erro");
+    e.textContent = msg; e.hidden = false;
+  }
+
+  // abrir de verdade a aplicacao escolhida
+  function abrirApp(key){
+    const url = (APPS[key] || {}).url;
+    if (AO_VIVO && url){ window.location.href = url; return true; }
+    toast(`Abrindo ${appName(key)}… (demonstração — iria para ${url || key.toLowerCase() + ".xptoinc.com.br"})`);
+    return false;
+  }
 
   let toastTimer = null;
   function toast(msg){
