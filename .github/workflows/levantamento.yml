@@ -226,6 +226,18 @@ jobs:
            limit 1;
 
           \echo
+          \echo === RISCO INVERSO: QUEM GANHARIA ACESSO ===
+          \echo A funcao antiga identifica a pessoa so por auth_user_id. A da Central
+          \echo identifica tambem por email. Delegar pode DAR acesso a contas que hoje
+          \echo nao conseguem nada. Estas sao as contas activas, com portao, sem
+          \echo auth_user_id ligado.
+          select count(*) as contas_sem_auth_com_portao,
+                 coalesce(string_agg(distinct u.email::text, ', '), '-') as quem
+            from public.users u
+           where u.active and not u.blocked and u.auth_user_id is null
+             and exists (select 1 from public.shaar_gate_access g where g.user_id = u.id);
+
+          \echo
           \echo === QUEM EXERCE POR CARGO, FORA DO PERFIL ===
           \echo A regra encontrada em jireh_has_permission: o cargo CFO exerce as
           \echo permissoes do perfil FINANCEIRO sem que isso esteja em
