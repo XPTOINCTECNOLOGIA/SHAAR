@@ -42,8 +42,14 @@ on:
     # directório e do ciclo de vida. Mede o estado já com o dia fechado.
     - cron: '15 2 * * *'
 
+# Os tres workflows que falam com a base partilham este grupo de proposito. O
+# `az vm run-command` nao aceita duas execucoes ao mesmo tempo na mesma VM —
+# responde Conflict e o job morre. Como o recurso disputado e a VM e nao o
+# workflow, o grupo tem de ser o da VM. Serializar e a intencao, nao um efeito
+# lateral: uma migracao a meio de uma leitura de estado daria um relatorio de
+# um estado que ja nao existe.
 concurrency:
-  group: estado-central
+  group: vm-supabase
   cancel-in-progress: false
 
 jobs:
