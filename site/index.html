@@ -1269,6 +1269,11 @@
       });
       DIRETORIO.length = 0;
       porPessoa.forEach(v => DIRETORIO.push(v));
+      if (!DIRETORIO.length) {
+        // a base devolve vazio tanto para "sem direito" como para "sem gente";
+        // vazio nao confirma a quem tentou qual dos dois e — de proposito
+        toast("O Quadro não devolveu nenhuma pessoa.");
+      }
       return true;
     } catch (err) {
       toast(err.message || "Não foi possível carregar o quadro.");
@@ -1420,6 +1425,7 @@
     try {
       const r = await portaoEmMassa(sessao.token, app, ids, !fechar);
       const dados = Array.isArray(r) ? r[0] : r;
+      if (dados && dados.negado) { toast("Sem permissão para autorização em massa."); return; }
       const mudaram = (dados && (dados.mudaram ?? dados.shaar_portao_em_massa?.mudaram)) ?? 0;
       const alvos = new Set(ids);
       DIRETORIO.forEach(p => {
@@ -1456,7 +1462,12 @@
     const botoes = [$("g-salvar"), $("g-revogar")];
     botoes.forEach(b => b.disabled = true);
     try {
-      await mexerPortao(sessao.token, fechar, pes.id, app);
+      // A base devolve false em vez de levantar excecao, para que a negativa
+      // possa ser registada na auditoria — excecao desfaria a transacao e
+      // levaria o registo junto.
+      const r = await mexerPortao(sessao.token, fechar, pes.id, app);
+      const feito = Array.isArray(r) ? r[0] : r;
+      if (feito === false) { toast("Sem permissão para mudar este portão."); return; }
       if (fechar) delete pes.apps[app]; else pes.apps[app] = true;
       fecharGaveta();
       renderQuadro();
