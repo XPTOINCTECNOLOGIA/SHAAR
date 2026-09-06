@@ -37,6 +37,11 @@ on:
         required: false
         default: ''
         type: string
+      parte:
+        description: 'Que pedaço do corpo (1, 2, 3…). Cada pedaço tem 1500 caracteres.'
+        required: false
+        default: '1'
+        type: string
 
 concurrency:
   group: levantamento
@@ -52,6 +57,7 @@ jobs:
           APP: ${{ inputs.app }}
           TAB: ${{ inputs.tabelas }}
           FUN: ${{ inputs.funcao }}
+          PARTE: ${{ inputs.parte }}
         run: |
           set -euo pipefail
           echo "$APP" | grep -qE '^[A-Z][A-Z0-9_]{1,31}$' || {
@@ -64,6 +70,8 @@ jobs:
             echo "$FUN" | grep -qE '^[a-z_][a-z0-9_]{2,60}$' || {
               echo "::error::Nome de funcao invalido: $FUN"; exit 1; }
           fi
+          echo "${PARTE:-1}" | grep -qE '^[1-9][0-9]?$' || {
+            echo "::error::Parte invalida: $PARTE"; exit 1; }
           echo "app=$APP tabelas=${TAB:-nenhuma} funcao=${FUN:-nenhuma}"
 
       - name: Login no Azure
@@ -78,6 +86,7 @@ jobs:
           APP: ${{ inputs.app }}
           TAB: ${{ inputs.tabelas }}
           FUN: ${{ inputs.funcao }}
+          PARTE: ${{ inputs.parte }}
         run: |
           set -euo pipefail
 
@@ -207,11 +216,28 @@ jobs:
           \echo === CORPO DE UMA FUNCAO ===
           \echo Uma de cada vez: a saida do az vem truncada no inicio quando e longa,
           \echo e despejar sete corpos de uma vez perde justamente o que interessa.
-          select pg_get_functiondef(p.oid)
+          select substring(pg_get_functiondef(p.oid)
+                           from ((:'parte')::int - 1) * 1500 + 1 for 1500) as pedaco,
+                 length(pg_get_functiondef(p.oid))                        as total_caracteres,
+                 ceil(length(pg_get_functiondef(p.oid)) / 1500.0)::int    as pedacos
             from pg_proc p join pg_namespace n on n.oid = p.pronamespace
            where n.nspname = 'public' and p.prokind = 'f'
              and :'fun' <> '' and p.proname = :'fun'
            limit 1;
+
+          \echo
+          \echo === QUEM EXERCE POR CARGO, FORA DO PERFIL ===
+          \echo A regra encontrada em jireh_has_permission: o cargo CFO exerce as
+          \echo permissoes do perfil FINANCEIRO sem que isso esteja em
+          \echo profile_permissions. Isto mostra quem e, e quanto herda.
+          select u.id, u.email, pos.name as cargo, pf.name as perfil_proprio,
+                 (select count(*) from public.profile_permissions pp
+                   join public.profiles fin on fin.id = pp.profile_id
+                  where upper(fin.name) = 'FINANCEIRO' and fin.active) as herda_do_financeiro
+            from public.users u
+            join public.positions pos on pos.id = u.position_id and pos.active
+            left join public.profiles pf on pf.id = u.profile_id
+           where u.active and not u.blocked and upper(pos.name) = 'CFO';
           FIMSQL
 
           B64=$(base64 -w0 consulta.sql)
@@ -220,7 +246,7 @@ jobs:
           echo '$B64' | base64 -d > /tmp/levantamento.sql
           echo '===INICIO==='
           docker exec -i -e PGPASSWORD=\"\$PGPW\" supabase-db psql -U postgres -h 127.0.0.1 \
-            -v app='$APP' -v tab='$TAB' -v fun='$FUN' -f - < /tmp/levantamento.sql
+            -v app='$APP' -v tab='$TAB' -v fun='$FUN' -v parte='${PARTE:-1}' -f - < /tmp/levantamento.sql
           echo '===FIM==='
           rm -f /tmp/levantamento.sql"
 
