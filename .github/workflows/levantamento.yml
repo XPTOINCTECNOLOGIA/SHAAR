@@ -134,9 +134,21 @@ jobs:
 
           BRUTO=$(az vm run-command invoke -g "$RG" -n "$VM" --command-id RunShellScript \
             --scripts "$REMOTE" --query "value[0].message" -o tsv)
-          SAIDA=$(printf '%s\n' "$BRUTO" | awk '/===INICIO===/{f=1;next} /===FIM===/{f=0} f')
 
-          if [ -z "$SAIDA" ]; then
+          # Nao filtrar por marcadores. A saida do `az vm run-command` vem
+          # truncada no INICIO quando e longa — foi o que aconteceu na primeira
+          # execucao: as 35 linhas do impacto chegaram todas, o `===INICIO===`
+          # e que nao, e o awk devolveu vazio sobre dados perfeitamente bons.
+          # Tirar so o invólucro do az e deixar passar o resto e mais robusto do
+          # que depender de uma linha que pode nao sobreviver ao caminho.
+          SAIDA=$(printf '%s\n' "$BRUTO" \
+            | grep -v '^Enable succeeded:' \
+            | grep -vx '\[stdout\]' \
+            | grep -vx '\[stderr\]' \
+            | grep -vx '===INICIO===' \
+            | grep -vx '===FIM===')
+
+          if [ -z "$(printf '%s' "$SAIDA" | tr -d '[:space:]')" ]; then
             echo "::error::Sem resposta da base. Saida em bruto:"
             printf '%s\n' "$BRUTO"
             exit 1
