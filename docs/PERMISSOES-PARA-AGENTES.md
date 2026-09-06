@@ -183,7 +183,35 @@ suposto crescer.
 
 ---
 
-## 7. Em caso de dúvida
+## 7. Três pedras em que já tropeçámos, no mesmo dia
+
+Não são teoria: aconteceram todas em 06/09/2026, e custaram tempo a mais do que
+uma pessoa.
+
+**Uma migração falhada bloqueia TODA a gente.** O pipeline corre em transacção
+única e por ordem de nome de ficheiro. Um ficheiro que rebente impede a sua
+migração e todas as seguintes, de qualquer agente, até ser corrigido — e o
+sintoma é a sua migração «não ter entrado» sem razão aparente. Se a sua não
+aparecer aplicada, veja o log do workflow antes de mexer no seu ficheiro: pode
+não ser seu o defeito. E se encontrar um ficheiro alheio a rebentar, corrija-o
+— é mais urgente do que aquilo que estava a fazer.
+
+**`create or replace function` NÃO muda o tipo de retorno.** Rebenta com
+`cannot change return type of existing function`. É preciso
+`drop function if exists ...` antes — e o `drop` leva a ACL consigo, portanto o
+`grant execute` tem de vir a seguir. Antes de criar uma função, procure se já
+existe uma com esse nome: se existir com outra assinatura, provavelmente há
+duas ideias diferentes com o mesmo nome, e a decisão não é técnica.
+
+**Dois agentes escolhem o mesmo número.** Aconteceu com o `028`. Antes de
+nomear o ficheiro, faça `git fetch` e olhe para o que já lá está; ao rebentar
+um push por o remoto estar à frente, renumere em vez de forçar. Nada se parte
+se dois ficheiros partilharem o número — a ordem é por nome e o registo é por
+ficheiro — mas o histórico fica ilegível para quem vier a seguir.
+
+---
+
+## 8. Em caso de dúvida
 
 Meça em vez de assumir. A base sabe responder:
 
