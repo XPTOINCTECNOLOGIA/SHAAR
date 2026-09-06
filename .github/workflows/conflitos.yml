@@ -1,0 +1,204 @@
+name: Conflitos de segregação de funções
+
+# Leitura, e só leitura. Não altera uma linha.
+#
+# O relatório nocturno diz "REVISOES_ABERTAS|81 (conflito: 76…)" e mais nada.
+# 76 é um número que não se decide: não diz quem, não diz que par, e sobretudo
+# não diz se o conflito ainda existe. A revisão é aberta no momento em que a
+# concessão é escrita e fica aberta para sempre até alguém a fechar — se a
+# permissão foi revogada entretanto, a revisão continua lá a apontar para um
+# conflito que já não existe.
+#
+# Por isso este workflow responde a duas perguntas separadas, e a ordem
+# importa:
+#
+#   HOJE — que pessoas acumulam, NESTE momento, os dois lados de um par
+#          declarado. Calculado das próprias concessões válidas, não das
+#          revisões. É esta a lista que se decide.
+#
+#   REVISÕES — quantos papéis estão abertos na fila, por par. Serve para saber
+#          quanto trabalho administrativo há e quanto dele é eco: várias
+#          revisões da mesma pessoa e do mesmo par contam uma vez em HOJE.
+#
+# O portão não entra nesta conta de propósito. A permissão é da pessoa e fica
+# registada mesmo com o portão fechado; quem acumula um par acumula-o na mesma
+# no dia em que o portão abrir. Mas a coluna PORTÃO diz-se, porque muda a
+# urgência: um conflito de quem entra hoje é diferente de um conflito de quem
+# não entra.
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: vm-supabase
+  cancel-in-progress: false
+
+jobs:
+  conflitos:
+    runs-on: ubuntu-latest
+    name: Ler os conflitos de segregação
+    steps:
+      - name: Login no Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Consultar a base
+        env:
+          RG: rg-xpto-plataforma
+          VM: vm-supabase
+        run: |
+          set -euo pipefail
+
+          cat > consulta.sql <<'FIMSQL'
+          -- Os pares declarados. A regra em si, para se poder discutir a regra
+          -- e não só as suas consequências.
+          select 'REGRA|' || c.app_a || '/' || c.code_a
+                 || '|' || c.app_b || '/' || c.code_b
+                 || '|' || c.severidade
+                 || '|' || c.motivo
+            from public.shaar_permission_conflito c
+           order by c.app_a, c.code_a;
+
+          -- Quem acumula os dois lados AGORA. Das concessoes, nao das revisoes.
+          select 'HOJE|' || u.full_name
+                 || '|' || u.email
+                 || '|' || c.app_a || '/' || c.code_a
+                 || '|' || c.app_b || '/' || c.code_b
+                 || '|' || case when pa.user_id is not null and pb.user_id is not null
+                                then 'entra nas duas'
+                                when pa.user_id is not null or pb.user_id is not null
+                                then 'entra numa'
+                                else 'nao entra em nenhuma' end
+                 || '|' || c.severidade
+            from public.shaar_permission_conflito c
+            join public.shaar_permission_grant ga
+              on ga.app_code = c.app_a and ga.code = c.code_a
+             and ga.efeito = 'permitir'
+             and ga.valido_de <= now()
+             and (ga.valido_ate is null or ga.valido_ate > now())
+            join public.shaar_permission_grant gb
+              on gb.user_id = ga.user_id
+             and gb.app_code = c.app_b and gb.code = c.code_b
+             and gb.efeito = 'permitir'
+             and gb.valido_de <= now()
+             and (gb.valido_ate is null or gb.valido_ate > now())
+            join public.users u on u.id = ga.user_id and u.active
+            left join public.shaar_gate_access pa
+              on pa.user_id = u.id and pa.app_code = c.app_a
+            left join public.shaar_gate_access pb
+              on pb.user_id = u.id and pb.app_code = c.app_b
+           order by c.app_a, c.code_a, u.full_name;
+
+          -- Quantas pessoas por par, agora.
+          select 'HOJE_POR_PAR|' || c.app_a || '/' || c.code_a
+                 || ' + ' || c.app_b || '/' || c.code_b
+                 || '|' || count(distinct ga.user_id)::text
+            from public.shaar_permission_conflito c
+            join public.shaar_permission_grant ga
+              on ga.app_code = c.app_a and ga.code = c.code_a and ga.efeito = 'permitir'
+            join public.shaar_permission_grant gb
+              on gb.user_id = ga.user_id
+             and gb.app_code = c.app_b and gb.code = c.code_b and gb.efeito = 'permitir'
+            join public.users u on u.id = ga.user_id and u.active
+           group by c.app_a, c.code_a, c.app_b, c.code_b
+           order by 1;
+
+          -- A fila administrativa, por par. Conta papeis, nao pessoas.
+          select 'REVISAO_POR_PAR|' || coalesce(r.detalhe ->> 'par', '(sem par)')
+                 || '|' || count(*)::text
+                 || '|' || count(distinct r.user_id)::text
+            from public.shaar_permission_revisao r
+           where r.gatilho = 'conflito' and r.resolvido_em is null
+           group by r.detalhe ->> 'par'
+           order by 1;
+
+          select 'TOTAL_REVISOES|' || count(*)::text
+                 || '|' || count(distinct user_id)::text
+            from public.shaar_permission_revisao
+           where gatilho = 'conflito' and resolvido_em is null;
+
+          -- Revisoes abertas cujo conflito ja nao existe: a permissao de um dos
+          -- lados foi revogada depois de o aviso ter sido dado. Fecham-se sem
+          -- decidir nada, e e por isso que se contam a parte.
+          select 'REVISAO_SEM_CONFLITO|' || count(*)::text
+            from public.shaar_permission_revisao r
+           where r.gatilho = 'conflito' and r.resolvido_em is null
+             and not exists (
+               select 1
+                 from public.shaar_permission_conflito c
+                 join public.shaar_permission_grant ga
+                   on ga.user_id = r.user_id and ga.app_code = c.app_a
+                  and ga.code = c.code_a and ga.efeito = 'permitir'
+                 join public.shaar_permission_grant gb
+                   on gb.user_id = r.user_id and gb.app_code = c.app_b
+                  and gb.code = c.code_b and gb.efeito = 'permitir'
+                where c.app_a || '/' || c.code_a || ' + ' || c.app_b || '/' || c.code_b
+                      = r.detalhe ->> 'par');
+          FIMSQL
+
+          B64=$(base64 -w0 consulta.sql)
+          REMOTE="set -e
+          PGPW=\$(grep '^POSTGRES_PASSWORD=' /opt/supa/.env | cut -d= -f2-)
+          echo '$B64' | base64 -d > /tmp/conflitos.sql
+          echo '===INICIO==='
+          docker exec -i -e PGPASSWORD=\"\$PGPW\" supabase-db psql -U postgres -h 127.0.0.1 -qtA -f - < /tmp/conflitos.sql
+          echo '===FIM==='
+          rm -f /tmp/conflitos.sql"
+
+          esperar_a_vm() {
+            local t erro
+            for t in 1 2 3 4 5 6; do
+              erro=$(mktemp)
+              if SAIDA_AZ=$(az vm run-command invoke -g "$RG" -n "$VM" \
+                              --command-id RunShellScript --scripts "$1" \
+                              --query "value[0].message" -o tsv 2>"$erro"); then
+                rm -f "$erro"; return 0
+              fi
+              if grep -qi "in progress" "$erro"; then
+                echo "A VM esta ocupada com outro run-command; espero $((t * 10))s (tentativa $t de 6)"
+                rm -f "$erro"; sleep $((t * 10)); continue
+              fi
+              echo "::error::az vm run-command falhou:"; cat "$erro"; rm -f "$erro"; return 1
+            done
+            echo "::error::A VM ficou ocupada seis tentativas seguidas."; return 1
+          }
+
+          esperar_a_vm "$REMOTE" || exit 1
+          SAIDA=$(printf '%s\n' "$SAIDA_AZ" | awk '/===INICIO===/{f=1;next} /===FIM===/{f=0} f' | grep '|' || true)
+
+          if [ -z "$SAIDA" ]; then
+            echo "::error::Nao consegui ler os conflitos. Saida em bruto:"
+            printf '%s\n' "$SAIDA_AZ"
+            exit 1
+          fi
+
+          printf '%s\n' "$SAIDA"
+
+          {
+            echo "## Conflitos de segregação de funções"
+            echo ""
+            echo "### Quem acumula os dois lados HOJE"
+            echo ""
+            echo "| Pessoa | E-mail | Um lado | Outro lado | Portão | Severidade |"
+            echo "|---|---|---|---|---|---|"
+            printf '%s\n' "$SAIDA" | awk -F'|' '$1=="HOJE"{printf "| %s | %s | %s | %s | %s | %s |\n",$2,$3,$4,$5,$6,$7}'
+            echo ""
+            echo "### Pessoas por par, agora"
+            echo ""
+            echo "| Par | Pessoas |"
+            echo "|---|---|"
+            printf '%s\n' "$SAIDA" | awk -F'|' '$1=="HOJE_POR_PAR"{printf "| %s | %s |\n",$2,$3}'
+            echo ""
+            echo "### Fila de revisão (papéis abertos, não pessoas)"
+            echo ""
+            echo "| Par | Revisões | Pessoas |"
+            echo "|---|---|---|"
+            printf '%s\n' "$SAIDA" | awk -F'|' '$1=="REVISAO_POR_PAR"{printf "| %s | %s | %s |\n",$2,$3,$4}'
+            echo ""
+            echo "### A regra"
+            echo ""
+            echo "| Um lado | Outro lado | Severidade | Motivo |"
+            echo "|---|---|---|---|"
+            printf '%s\n' "$SAIDA" | awk -F'|' '$1=="REGRA"{printf "| %s | %s | %s | %s |\n",$2,$3,$4,$5}'
+          } >> "$GITHUB_STEP_SUMMARY"
