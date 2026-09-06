@@ -99,10 +99,11 @@ jobs:
                  and not p.polpermissive
               union
               select m[1]
-                from regexp_matches(
-                       coalesce(pg_get_functiondef(
-                         to_regprocedure('public.has_permission(character varying)')), ''),
-                       'shaar_pode\(''([A-Z]+)''', 'g') as m
+                from pg_proc f join pg_namespace nf on nf.oid = f.pronamespace
+                cross join lateral regexp_matches(pg_get_functiondef(f.oid),
+                       'shaar_pode\([ (]*''([A-Z]+)''', 'g') as m
+               where nf.nspname = 'public' and f.prokind = 'f'
+                 and f.proname in ('has_permission', 'jireh_has_permission')
             ) t;
           select 'CODIGOS_ANTIGOS_FORA_DO_CATALOGO|' || count(distinct p.code)
             from public.permissions p
@@ -113,13 +114,13 @@ jobs:
             join pg_namespace n on n.oid = c.relnamespace
            where n.nspname = 'public'
              and (coalesce(pg_get_expr(p.polqual, p.polrelid), '')
-               || coalesce(pg_get_expr(p.polwithcheck, p.polrelid), '')) ~ 'jireh_has_permission';
+               || coalesce(pg_get_expr(p.polwithcheck, p.polrelid), '')) ~ 'jireh_has_permission_legado';
           select 'FUNCOES_FORA_DA_CENTRAL|' ||
                  coalesce(string_agg(p.proname, ', ' order by p.proname), 'nenhuma')
             from pg_proc p join pg_namespace n on n.oid = p.pronamespace
            where n.nspname = 'public' and p.prokind = 'f'
              and p.proname not in ('has_permission', 'jireh_has_permission')
-             and pg_get_functiondef(p.oid) ~ 'jireh_has_permission';
+             and pg_get_functiondef(p.oid) ~ 'jireh_has_permission_legado';
           select 'FORA_DA_CENTRAL_POR_APP|' ||
                  coalesce(string_agg(app || ': ' || n, ', ' order by n desc), 'nenhuma')
             from (
@@ -136,11 +137,11 @@ jobs:
                   select pg_get_functiondef(f.oid)
                     from pg_proc f join pg_namespace n on n.oid = f.pronamespace
                    where n.nspname = 'public' and f.prokind = 'f'
-                     and f.proname <> 'has_permission'
-                     and pg_get_functiondef(f.oid) ~ 'jireh_has_permission'
+                     and f.proname not in ('has_permission', 'jireh_has_permission')
+                     and pg_get_functiondef(f.oid) ~ 'jireh_has_permission_legado'
                 ) src
                 cross join lateral regexp_matches(
-                  src.txt, 'jireh_has_permission\([ (]*''([a-zA-Z0-9_.:-]+)''', 'g') as m
+                  src.txt, 'jireh_has_permission_legado\([ (]*''([a-zA-Z0-9_.:-]+)''', 'g') as m
                 left join public.shaar_permission sp on sp.code = m[1]
                group by 1
             ) t;
@@ -156,7 +157,7 @@ jobs:
                where n.nspname = 'public'
             ) src
             cross join lateral regexp_matches(
-              src.txt, 'jireh_has_permission(.{0,48})', 'g') as m;
+              src.txt, 'jireh_has_permission_legado(.{0,48})', 'g') as m;
           select 'IDENTIDADE_SO_POR_EMAIL|' || count(*)
             from public.users u
            where u.active and not u.blocked and u.auth_user_id is null
