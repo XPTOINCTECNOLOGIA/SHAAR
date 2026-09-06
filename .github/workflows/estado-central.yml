@@ -15,6 +15,21 @@ name: Estado da Central de Permissionamento
 # afastar-se: é aí que se pára, e não depois. Por isso o job fica VERMELHO —
 # um relatório que ninguém lê não protege nada; um job vermelho lê-se.
 #
+# O segundo número que importa é a IDENTIDADE. A Central resolve quem está a
+# pedir por `auth_user_id` OU por e-mail — tem de ser assim, porque há dois
+# caminhos de autenticação (Entra ID e credencial local) e a mesma pessoa é a
+# mesma linha de `public.users` nos dois. O preço disso é que o e-mail passa a
+# ser chave de identidade, e `shaar_usuario_atual` desempata com LIMIT 1. Se
+# alguma vez dois registos activos partilharem o e-mail, o desempate é
+# arbitrário e alguém pode exercer a autorização de outra pessoa. Por isso
+# IDENTIDADE_AMBIGUA tem de ser zero, e também põe o job vermelho.
+#
+# IDENTIDADE_SO_POR_EMAIL conta as pessoas que só são reconhecidas por e-mail
+# (sem `auth_user_id`). Não é erro — é o caminho do Entra ID a funcionar. Mas é
+# o número que explica porque é que código antigo que só olha para
+# `auth_user_id` se comporta de maneira diferente da Central para essas
+# pessoas, e por isso fica à vista em vez de ser descoberto por acidente.
+#
 # O SQL vai em base64, como no pipeline de migrations. Não é preciosismo: o
 # SQL precisa de plicas para os literais, o script remoto precisa de plicas
 # para não expandir nada, e aspas duplas em PostgreSQL nomeiam colunas em vez
@@ -69,14 +84,45 @@ jobs:
                  coalesce(string_agg(distinct gatilho, ', '), '-') || ')'
             from public.shaar_permission_revisao where resolvido_em is null;
           select 'HISTORICO|' || count(*) || ' eventos' from public.shaar_permission_event;
-          select 'APLICACOES_A_OBEDECER|' ||
-                 coalesce(string_agg(distinct upper(split_part(c.relname, '_', 1)), ', '), 'nenhuma')
-            from pg_policy p
-            join pg_class c on c.oid = p.polrelid
-            join pg_namespace n on n.oid = c.relnamespace
-           where n.nspname = 'public'
-             and p.polname like '%\_perm\_%'
-             and not p.polpermissive;
+          select 'APLICACOES_A_OBEDECER|' || coalesce(string_agg(distinct a, ', '), 'nenhuma')
+            from (
+              select upper(split_part(c.relname, '_', 1)) as a
+                from pg_policy p
+                join pg_class c on c.oid = p.polrelid
+                join pg_namespace n on n.oid = c.relnamespace
+               where n.nspname = 'public'
+                 and p.polname like '%\_perm\_%'
+                 and not p.polpermissive
+              union
+              select m[1]
+                from regexp_matches(
+                       coalesce(pg_get_functiondef(
+                         to_regprocedure('public.has_permission(character varying)')), ''),
+                       'shaar_pode\(''([A-Z]+)''', 'g') as m
+            ) t;
+          select 'IDENTIDADE_SO_POR_EMAIL|' || count(*)
+            from public.users u
+           where u.active and not u.blocked and u.auth_user_id is null
+             and exists (select 1 from public.shaar_gate_access g where g.user_id = u.id);
+          select 'IDENTIDADE_SEM_CONTA_AUTH|' || count(*)
+            from public.users u
+           where u.active and not u.blocked and u.auth_user_id is null
+             and exists (select 1 from public.shaar_gate_access g where g.user_id = u.id)
+             and not exists (select 1 from auth.users a where lower(a.email) = lower(u.email));
+          select 'IDENTIDADE_AMBIGUA|' || count(*) from (
+            select lower(u.email) as e
+              from public.users u
+             where u.active and not u.blocked
+             group by lower(u.email)
+            having count(*) > 1
+            union
+            select lower(a.email)
+              from auth.users a
+              join public.users u on lower(u.email) = lower(a.email)
+             where u.active and not u.blocked
+             group by lower(a.email)
+            having count(distinct a.id) > 1
+          ) d;
           select 'HISTORICO_IMUTAVEL|' || case
                    when has_table_privilege('authenticated','public.shaar_permission_event','UPDATE')
                      or has_table_privilege('authenticated','public.shaar_permission_event','DELETE')
@@ -115,12 +161,17 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
           DIV=$(printf '%s\n' "$SAIDA" | awk -F'|' '/^DIVERGENCIA\|/{print $2}' | tr -d '[:space:]')
+          AMB=$(printf '%s\n' "$SAIDA" | awk -F'|' '/^IDENTIDADE_AMBIGUA\|/{print $2}' | tr -d '[:space:]')
           TA=$(printf '%s\n' "$SAIDA" | awk -F'|' '/^TESTES_AUTORIZACAO\|/{print $2}')
           TE=$(printf '%s\n' "$SAIDA" | awk -F'|' '/^TESTES_ESCOPO\|/{print $2}')
 
           FALHOU=0
           if [ "${DIV:-x}" != "0" ]; then
             echo "::error::Divergencia ${DIV} entre a Central e os modelos antigos. Nao trocar a autoridade de mais nenhuma aplicacao ate voltar a zero, e descobrir quem mexeu no modelo antigo."
+            FALHOU=1
+          fi
+          if [ "${AMB:-x}" != "0" ]; then
+            echo "::error::${AMB} e-mail(s) resolvem para mais do que uma pessoa. shaar_usuario_atual desempata com LIMIT 1, ou seja, arbitrariamente: alguem pode receber a autorizacao de outra pessoa. Resolver antes de qualquer outra coisa."
             FALHOU=1
           fi
           for T in "$TA" "$TE"; do
