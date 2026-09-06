@@ -1645,9 +1645,21 @@
       return false;
     }
     const b = await pedirBilhete(key);
-    window.location.href = b
-      ? `${b.url || url}#bilhete=${encodeURIComponent(b.bilhete)}`
-      : url;
+    if (!b) { window.location.href = url; return true; }
+
+    // O bilhete AUTORIZA; a sessao é o que dispensa novo login. Cada aplicação
+    // vive num subdomínio próprio, com armazenamento próprio: sem levar a
+    // sessão junto, ela pede credenciais outra vez — e isso não é SSO, é uma
+    // catraca antes de uma porta trancada.
+    //
+    // Vai no FRAGMENTO, que não é enviado ao servidor nem entra em log nem
+    // viaja no Referer, sobre HTTPS, e a aplicação apaga-o da barra de
+    // endereço assim que o consome.
+    const sessao = lerSessao();
+    const parcelas = [`bilhete=${encodeURIComponent(b.bilhete)}`];
+    if (sessao && sessao.token)   parcelas.push(`at=${encodeURIComponent(sessao.token)}`);
+    if (sessao && sessao.refresh) parcelas.push(`rt=${encodeURIComponent(sessao.refresh)}`);
+    window.location.href = `${b.url || url}#${parcelas.join("&")}`;
     return true;
   }
 

@@ -113,18 +113,28 @@ export function esquecerBilhete(app) {
   try { sessionStorage.removeItem(CHAVE_SESSAO(app)); } catch (e) { /* nada a fazer */ }
 }
 
-/** Colhe o bilhete do fragmento e limpa a barra de endereço. */
+/**
+ * Colhe do fragmento o bilhete e a sessão, e limpa a barra de endereço.
+ *
+ * O bilhete AUTORIZA. A sessão é o que dispensa novo login: cada aplicação
+ * vive num subdomínio próprio, com armazenamento próprio, e sem a sessão
+ * pediria credenciais outra vez — o que não é SSO, é uma catraca antes de
+ * uma porta trancada.
+ */
 function colher() {
   const frag = (location.hash || "").replace(/^#/, "");
   if (!frag) return null;
   const p = new URLSearchParams(frag);
   const b = p.get("bilhete");
   if (!b) return null;
-  p.delete("bilhete");
+  const at = p.get("at");
+  const rt = p.get("rt");
+  for (const k of ["bilhete", "at", "rt"]) p.delete(k);
   const resto = p.toString();
-  // fragmento e não query: não vai em logs de servidor nem no cabeçalho Referer
+  // fragmento e não query: não vai em logs de servidor nem no cabeçalho Referer.
+  // Apagamos assim que consumimos, para não ficar no histórico do navegador.
   history.replaceState(null, "", location.pathname + location.search + (resto ? `#${resto}` : ""));
-  return b;
+  return { bilhete: b, sessao: at ? { access_token: at, refresh_token: rt || "" } : null };
 }
 
 function irAoShaar(cfg, app, motivo) {
@@ -143,7 +153,8 @@ export async function registerApplication(opcoes = {}) {
   const cfg = { ...PADRAO, ...opcoes };
   if (!cfg.app) throw new Error("shaar-guard: falta o código da aplicação");
 
-  const doFragmento = colher();
+  const colhido = colher();
+  const doFragmento = colhido && colhido.bilhete;
   const bilhete = doFragmento || lerGuardado(cfg.app);
 
   const v = bilhete
@@ -158,7 +169,7 @@ export async function registerApplication(opcoes = {}) {
     const rotulo = v.ok ? "entraria" : `seria barrado (${v.motivo})`;
     console.info(`[shaar-guard] ${cfg.app}: ${rotulo}`);
     if (typeof cfg.aoObservar === "function") cfg.aoObservar(v);
-    return v.ok ? v.dados : null;
+    return v.ok ? { ...v.dados, sessao: colhido && colhido.sessao } : null;
   }
 
   if (!v.ok) { irAoShaar(cfg, cfg.app, v.motivo); return null; }
@@ -172,7 +183,8 @@ export async function registerApplication(opcoes = {}) {
     }, Math.max(faltam - cfg.renovarAntesDe, 5) * 1000);
   }
 
-  return v.dados;
+  // a sessão vem só na chegada; em recargas seguintes a aplicação já tem a sua
+  return { ...v.dados, sessao: colhido && colhido.sessao };
 }
 
 export default { registerApplication, verificarBilhete, esquecerBilhete };

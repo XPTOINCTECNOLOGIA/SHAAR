@@ -25,6 +25,12 @@ export interface Identidade {
   exp: number;
   /** identificador único deste bilhete */
   jti: string;
+  /**
+   * Sessão do ecossistema, entregue pelo SHAAR só na chegada. É o que dispensa
+   * novo login: a aplicação deve passá-la ao seu cliente Supabase com
+   * `supabase.auth.setSession(sessao)` ANTES de renderizar.
+   */
+  sessao?: { access_token: string; refresh_token: string } | null;
 }
 
 export type MotivoRecusa =
