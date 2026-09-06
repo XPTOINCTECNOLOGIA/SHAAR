@@ -120,6 +120,30 @@ jobs:
            where n.nspname = 'public' and p.prokind = 'f'
              and p.proname not in ('has_permission', 'jireh_has_permission')
              and pg_get_functiondef(p.oid) ~ 'jireh_has_permission';
+          select 'FORA_DA_CENTRAL_POR_APP|' ||
+                 coalesce(string_agg(app || ': ' || n, ', ' order by n desc), 'nenhuma')
+            from (
+              select coalesce(sp.app_code, '(codigo desconhecido)') as app,
+                     count(*)::text as n
+                from (
+                  select coalesce(pg_get_expr(p.polqual, p.polrelid), '')
+                      || coalesce(pg_get_expr(p.polwithcheck, p.polrelid), '') as txt
+                    from pg_policy p
+                    join pg_class c on c.oid = p.polrelid
+                    join pg_namespace n on n.oid = c.relnamespace
+                   where n.nspname = 'public'
+                  union all
+                  select pg_get_functiondef(f.oid)
+                    from pg_proc f join pg_namespace n on n.oid = f.pronamespace
+                   where n.nspname = 'public' and f.prokind = 'f'
+                     and f.proname <> 'has_permission'
+                     and pg_get_functiondef(f.oid) ~ 'jireh_has_permission'
+                ) src
+                cross join lateral regexp_matches(
+                  src.txt, 'jireh_has_permission\(''([a-zA-Z0-9_.]+)''', 'g') as m
+                left join public.shaar_permission sp on sp.code = m[1]
+               group by 1
+            ) t;
           select 'IDENTIDADE_SO_POR_EMAIL|' || count(*)
             from public.users u
            where u.active and not u.blocked and u.auth_user_id is null
@@ -129,6 +153,10 @@ jobs:
            where u.active and not u.blocked and u.auth_user_id is null
              and exists (select 1 from public.shaar_gate_access g where g.user_id = u.id)
              and not exists (select 1 from auth.users a where lower(a.email) = lower(u.email));
+          select 'IDENTIDADE_EMAIL_VAZIO|' || count(*)
+            from public.users u
+           where u.active and not u.blocked
+             and coalesce(u.email, '') = '';
           select 'IDENTIDADE_AMBIGUA|' || count(*) from (
             select lower(u.email) as e
               from public.users u
@@ -182,12 +210,17 @@ jobs:
 
           DIV=$(printf '%s\n' "$SAIDA" | awk -F'|' '/^DIVERGENCIA\|/{print $2}' | tr -d '[:space:]')
           AMB=$(printf '%s\n' "$SAIDA" | awk -F'|' '/^IDENTIDADE_AMBIGUA\|/{print $2}' | tr -d '[:space:]')
+          VAZ=$(printf '%s\n' "$SAIDA" | awk -F'|' '/^IDENTIDADE_EMAIL_VAZIO\|/{print $2}' | tr -d '[:space:]')
           TA=$(printf '%s\n' "$SAIDA" | awk -F'|' '/^TESTES_AUTORIZACAO\|/{print $2}')
           TE=$(printf '%s\n' "$SAIDA" | awk -F'|' '/^TESTES_ESCOPO\|/{print $2}')
 
           FALHOU=0
           if [ "${DIV:-x}" != "0" ]; then
             echo "::error::Divergencia ${DIV} entre a Central e os modelos antigos. Nao trocar a autoridade de mais nenhuma aplicacao ate voltar a zero, e descobrir quem mexeu no modelo antigo."
+            FALHOU=1
+          fi
+          if [ "${VAZ:-x}" != "0" ]; then
+            echo "::error::${VAZ} pessoa(s) activa(s) com e-mail vazio. O e-mail e chave de identidade: uma linha com e-mail vazio casa com qualquer pedido que chegue sem claim de e-mail. Preencher ou desactivar."
             FALHOU=1
           fi
           if [ "${AMB:-x}" != "0" ]; then
