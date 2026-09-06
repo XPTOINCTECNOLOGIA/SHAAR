@@ -22,6 +22,35 @@
 -- de testar um limite concreto continua a chamar shaar_pode com o contexto.
 -- =====================================================================
 
+-- ---------------------------------------------------------------------
+-- NOTA acrescentada ao desbloquear o pipeline (06/09, sessao ...F1Cdu6)
+-- ---------------------------------------------------------------------
+-- Este ficheiro falhou a aplicar com:
+--
+--   ERROR: cannot change return type of existing function
+--   HINT:  Use DROP FUNCTION shaar_minhas_permissoes(text) first.
+--
+-- Ja existia uma `shaar_minhas_permissoes(text)` em db/20-permissoes.sql, com
+-- `returns table (code text, escopo jsonb)` — a que "entra no bilhete". Como
+-- `create or replace` nao muda tipos de retorno, a transaccao inteira rebentava
+-- e, por correr em transaccao unica e por ordem de ficheiro, bloqueava esta e
+-- todas as migracoes seguintes.
+--
+-- O `drop` abaixo e a correccao minima. Duas coisas que ficam ditas em vez de
+-- descobertas mais tarde:
+--
+--   · a coluna `escopo` desaparece da superficie. Nenhum dos nove repositorios
+--     chamava esta funcao — foi escrita como API e nunca ligada — portanto
+--     ninguem parte hoje. Quem vier a precisar do escopo acrescenta-o de
+--     proposito, e nao por acidente de um replace.
+--   · a semantica muda para melhor: a versao antiga lia as concessoes por
+--     conta propria (validade e negacao, mas sem portao e sem escopo), ou seja
+--     era um SEGUNDO caminho de decisao a viver ao lado de `shaar_pode`. A
+--     versao abaixo delega, e passa a haver um so sitio onde se decide.
+--
+-- O `revoke`/`grant` mais abaixo repoe a ACL, que o drop leva consigo.
+drop function if exists public.shaar_minhas_permissoes(text);
+
 create or replace function public.shaar_minhas_permissoes(p_app text)
 returns table (code text)
 language sql stable security definer set search_path = public
