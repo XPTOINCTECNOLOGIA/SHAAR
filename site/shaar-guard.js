@@ -44,6 +44,42 @@ const b64u = (s) => {
 const bytes = (s) => Uint8Array.from(b64u(s), (c) => c.charCodeAt(0));
 const carga = (t) => JSON.parse(new TextDecoder().decode(bytes(t.split(".")[1])));
 
+// o que o ultimo fragmento trazia, e o erro do ultimo setSession
+let ULTIMA_CHEGADA = "sem-fragmento";
+let ULTIMO_ERRO = "";
+
+// Trava de ciclo. Sem isto, uma falha persistente faz a pessoa saltar entre a
+// aplicacao e o SHAAR indefinidamente — que e pior do que uma mensagem de
+// erro, porque nao ha onde ler o que aconteceu.
+const CHAVE_VOLTAS = (app) => `shaar.voltas.${app}`;
+const MAX_VOLTAS = 2;
+function contarVolta(app) {
+  try {
+    const n = Number(sessionStorage.getItem(CHAVE_VOLTAS(app)) || 0) + 1;
+    sessionStorage.setItem(CHAVE_VOLTAS(app), String(n));
+    return n;
+  } catch (e) { return 1; }
+}
+function zerarVoltas(app) {
+  try { sessionStorage.removeItem(CHAVE_VOLTAS(app)); } catch (e) {}
+}
+
+function pararComRecado(app, motivo) {
+  const html = `<div style="font:16px/1.6 system-ui,sans-serif;max-width:34rem;margin:12vh auto;padding:0 1.5rem;color:#1B2434">
+    <div style="width:44px;height:44px;border-radius:10px;background:#101828;display:grid;place-items:center;margin-bottom:1.5rem">
+      <span style="color:#60CFE2;font-weight:800;letter-spacing:.2em;font-size:11px">XPTO</span></div>
+    <h1 style="font-size:1.5rem;margin:0 0 .75rem">Não foi possível abrir o ${app}</h1>
+    <p style="margin:0 0 1rem;color:#41546E">A sua entrada foi autorizada, mas a sessão não se estabeleceu
+    nesta aplicação. Interrompi aqui em vez de a mandar de volta outra vez.</p>
+    <p style="margin:0 0 1.5rem;font:13px/1.5 ui-monospace,monospace;color:#6B7B90;background:#F4F6FA;
+      border:1px solid #D8E0EA;border-radius:8px;padding:.75rem 1rem">${motivo}</p>
+    <a href="https://shaar.xptoinc.com.br" style="display:inline-block;background:#101828;color:#fff;
+      text-decoration:none;padding:.7rem 1.4rem;border-radius:8px;font-weight:600">Voltar ao SHAAR</a>
+  </div>`;
+  try { document.body.innerHTML = html; } catch (e) { /* documento ainda a carregar */ }
+  console.error(`[shaar-guard] ${app}: parei o ciclo — ${motivo}`);
+}
+
 let jwksCache = null;
 async function chaves(api) {
   if (jwksCache) return jwksCache;
@@ -129,6 +165,9 @@ function colher() {
   if (!b) return null;
   const at = p.get("at");
   const rt = p.get("rt");
+  // marca do que chegou de facto: b/a/r com 1 ou 0. Vai no motivo quando algo
+  // falha, para o diagnostico nao depender de adivinhacao.
+  ULTIMA_CHEGADA = `b${b ? 1 : 0}a${at ? 1 : 0}r${rt ? 1 : 0}`;
   for (const k of ["bilhete", "at", "rt"]) p.delete(k);
   const resto = p.toString();
   // fragmento e não query: não vai em logs de servidor nem no cabeçalho Referer.
@@ -138,10 +177,16 @@ function colher() {
 }
 
 function irAoShaar(cfg, app, motivo) {
+  if (contarVolta(app) > MAX_VOLTAS) {
+    pararComRecado(app, `${motivo} · chegou ${ULTIMA_CHEGADA}${ULTIMO_ERRO ? " · " + ULTIMO_ERRO : ""}`);
+    return;
+  }
   const destino = new URL(cfg.shaar);
   destino.searchParams.set("app", app);
   destino.searchParams.set("de", location.href);
   if (motivo) destino.searchParams.set("motivo", motivo);
+  destino.searchParams.set("viu", ULTIMA_CHEGADA);
+  if (ULTIMO_ERRO) destino.searchParams.set("erro", ULTIMO_ERRO);
   location.replace(destino.toString());
 }
 
@@ -198,13 +243,16 @@ export async function adoptarSessao(supabase, eu, opcoes = {}) {
   const cfg = { ...PADRAO, ...opcoes };
   try {
     if (eu && eu.sessao && eu.sessao.access_token) {
-      await supabase.auth.setSession({
+      const r = await supabase.auth.setSession({
         access_token: eu.sessao.access_token,
         refresh_token: eu.sessao.refresh_token || "",
       });
+      if (r && r.error) ULTIMO_ERRO = String(r.error.name || r.error.message).slice(0, 40);
+    } else {
+      ULTIMO_ERRO = "sem_sessao_no_fragmento";
     }
     const { data } = await supabase.auth.getSession();
-    if (data && data.session) return true;
+    if (data && data.session) { zerarVoltas(cfg.app); return true; }
 
     console.warn(`[shaar-guard] ${cfg.app}: a sessão não colou`);
     if (cfg.modo !== "observar") {
@@ -213,6 +261,7 @@ export async function adoptarSessao(supabase, eu, opcoes = {}) {
     }
     return false;
   } catch (e) {
+    ULTIMO_ERRO = String((e && e.name) || e).slice(0, 40);
     console.warn(`[shaar-guard] ${cfg.app}: erro ao adoptar a sessão:`, e);
     if (cfg.modo !== "observar") {
       esquecerBilhete(cfg.app);
