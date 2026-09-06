@@ -20,6 +20,10 @@ export interface Identidade {
   perfil: string | null;
   nivel: number;
   cargo: string | null;
+  /** o que esta pessoa pode nesta aplicacao: codigo -> limites */
+  perms: Record<string, Record<string, unknown>>;
+  /** versao das permissoes; muda sempre que alguem lhes mexe */
+  pv: number;
   iat: number;
   nbf: number;
   exp: number;
@@ -99,9 +103,51 @@ export function adoptarSessao(
 /** Apaga o bilhete guardado nesta aba. */
 export function esquecerBilhete(app: string): void;
 
+/**
+ * Limites de uma concessão. Objecto vazio significa sem limite.
+ *
+ *   { departamento: ["FIN","OPS"] }   valor tem de estar na lista
+ *   { valor_max: 50000 }              contexto.valor <= 50000
+ *   { nivel_min: 3 }                  contexto.nivel  >= 3
+ *   { unidade: "matriz" }             igualdade exacta
+ */
+export type Escopo = Record<string, string | number | boolean | string[]>;
+
+/** Os factos do recurso concreto sobre o qual se pergunta. */
+export type Contexto = Record<string, string | number | boolean>;
+
+/**
+ * Esta pessoa pode, nesta aplicação, fazer isto — neste contexto?
+ *
+ * Responde pelo bilhete assinado pelo SHAAR e já verificado por esta
+ * biblioteca. Zero chamadas de rede.
+ *
+ * DECIDE O QUE APARECE, NÃO O QUE ACONTECE. Quem alterar a lista no navegador
+ * vê o botão, e ao carregar nele leva um "não" da base de dados. Esconder um
+ * botão nunca foi autorização.
+ *
+ * Dimensão de escopo declarada e ausente do contexto devolve `false` — nunca
+ * "sim por omissão".
+ */
+export function podeFazer(codigo: string, contexto?: Contexto): boolean;
+
+/** Todas as permissões desta pessoa nesta aplicação, com os seus limites. */
+export function minhasPermissoes(): Record<string, Escopo>;
+
+/**
+ * A versão das permissões que veio no bilhete. Compare-a com
+ * `GET /permissoes/versao` quando a aba ganhar foco para saber se o que tem
+ * na mão ficou velho, sem perguntar a cada clique.
+ */
+export function versaoPermissoes(): number;
+
 declare const _default: {
   registerApplication: typeof registerApplication;
+  adoptarSessao: typeof adoptarSessao;
   verificarBilhete: typeof verificarBilhete;
   esquecerBilhete: typeof esquecerBilhete;
+  podeFazer: typeof podeFazer;
+  minhasPermissoes: typeof minhasPermissoes;
+  versaoPermissoes: typeof versaoPermissoes;
 };
 export default _default;

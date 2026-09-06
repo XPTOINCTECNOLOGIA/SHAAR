@@ -108,6 +108,16 @@ Deno.serve(async (req) => {
     perfil: d.perfil,
     nivel: d.nivel,
     cargo: d.cargo,
+    // O que a pessoa pode nesta aplicacao, com escopo. Objecto codigo -> escopo;
+    // escopo vazio significa sem limite.
+    //
+    // Isto decide o que APARECE, nao o que ACONTECE. Quem alterar a lista no
+    // navegador ve o botao, e ao carregar nele leva um "nao" da base de dados,
+    // que e onde a regra vive. Esconder um botao nunca foi autorizacao.
+    perms: d.perms ?? {},
+    // versao das permissoes: com ela a aplicacao sabe quando o que tem na mao
+    // ficou velho, sem perguntar a cada clique
+    pv: d.pv ?? 0,
     iat: agora,
     nbf: agora - 5,             // tolerancia para relogios ligeiramente adiantados
     exp: agora + VIDA_SEG,
@@ -115,6 +125,6 @@ Deno.serve(async (req) => {
   });
 
   return new Response(JSON.stringify({
-    bilhete, expira_em: VIDA_SEG, url: d.url, app: d.app,
+    bilhete, expira_em: VIDA_SEG, url: d.url, app: d.app, pv: d.pv ?? 0,
   }), { headers: cabecalhos });
 });

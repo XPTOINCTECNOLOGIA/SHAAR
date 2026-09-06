@@ -37,6 +37,10 @@ const PADRAO = {
 
 const CHAVE_SESSAO = (app) => `shaar.bilhete.${app}`;
 
+// A carga do bilhete verificado mais recente. É daqui que podeFazer() responde:
+// já passou pela verificação de assinatura, emissor, destinatário e validade.
+let CARGA = null;
+
 const b64u = (s) => {
   const p = s.replace(/-/g, "+").replace(/_/g, "/");
   return atob(p + "=".repeat((4 - (p.length % 4)) % 4));
@@ -214,6 +218,7 @@ export async function registerApplication(opcoes = {}) {
     const rotulo = v.ok ? "entraria" : `seria barrado (${v.motivo})`;
     console.info(`[shaar-guard] ${cfg.app}: ${rotulo}`);
     if (typeof cfg.aoObservar === "function") cfg.aoObservar(v);
+    if (v.ok) CARGA = v.dados;
     return v.ok ? { ...v.dados, sessao: colhido && colhido.sessao } : null;
   }
 
@@ -229,6 +234,7 @@ export async function registerApplication(opcoes = {}) {
   }
 
   // a sessão vem só na chegada; em recargas seguintes a aplicação já tem a sua
+  CARGA = v.dados;
   return { ...v.dados, sessao: colhido && colhido.sessao };
 }
 
@@ -323,4 +329,74 @@ export async function adoptarSessao(supabase, eu, opcoes = {}) {
   }
 }
 
-export default { registerApplication, adoptarSessao, verificarBilhete, esquecerBilhete };
+/**
+ * As quatro regras de escopo, iguais às do servidor.
+ *
+ *   {}                              sem limite
+ *   {"departamento":["FIN","OPS"]}  contexto.departamento tem de estar na lista
+ *   {"valor_max":50000}             contexto.valor <= 50000
+ *   {"nivel_min":3}                 contexto.nivel  >= 3
+ *
+ * Dimensão declarada e AUSENTE do contexto devolve falso — nunca "sim por
+ * omissão". Um esquecimento de programação vira um botão que não aparece, e
+ * não um buraco silencioso.
+ *
+ * A versão que conta é a do servidor, em db/20-permissoes.sql. Se as duas
+ * divergirem, é a de lá que manda, e o conjunto de testes apanha a diferença.
+ */
+function dentroDoEscopo(escopo, ctx) {
+  if (!escopo || typeof escopo !== "object") return true;
+  const c = ctx && typeof ctx === "object" ? ctx : {};
+  return Object.keys(escopo).every((k) => {
+    const v = escopo[k];
+    if (Array.isArray(v)) return k in c && v.includes(c[k]);
+    if (k.endsWith("_max") || k.endsWith("_min")) {
+      const d = k.slice(0, -4);
+      if (!(d in c)) return false;
+      const n = Number(c[d]), lim = Number(v);
+      if (!Number.isFinite(n) || !Number.isFinite(lim)) return false;
+      return k.endsWith("_max") ? n <= lim : n >= lim;
+    }
+    return k in c && c[k] === v;
+  });
+}
+
+/**
+ * Esta pessoa pode, nesta aplicação, fazer isto — neste contexto?
+ *
+ * Responde pelo bilhete que o SHAAR assinou e que esta biblioteca já
+ * verificou. Zero chamadas de rede: as permissões viajaram no bilhete.
+ *
+ * ISTO DECIDE O QUE APARECE, NÃO O QUE ACONTECE. Quem alterar a lista no
+ * navegador consegue ver o botão, e ao carregar nele leva um "não" da base de
+ * dados, que é onde a regra vive. Esconder um botão nunca foi autorização e
+ * continua a não ser — serve para a experiência ser decente, e mais nada.
+ */
+export function podeFazer(codigo, contexto) {
+  if (!CARGA || !CARGA.perms || typeof CARGA.perms !== "object") return false;
+  if (!Object.prototype.hasOwnProperty.call(CARGA.perms, codigo)) return false;
+  return dentroDoEscopo(CARGA.perms[codigo], contexto);
+}
+
+/** Todas as permissões desta pessoa nesta aplicação, com os seus limites. */
+export function minhasPermissoes() {
+  return CARGA && CARGA.perms ? { ...CARGA.perms } : {};
+}
+
+/**
+ * A versão das permissões que veio no bilhete.
+ *
+ * Serve para a aplicação saber que o que tem na mão ficou velho sem perguntar
+ * a cada clique: compara-se com GET /permissoes/versao quando a aba volta a
+ * ganhar foco — um momento em que ninguém está à espera — e pede-se bilhete
+ * novo se divergirem. Enquanto isso, quem perdeu uma permissão continua a ver
+ * o botão e leva um "não" da base ao carregar. Feio, mas seguro.
+ */
+export function versaoPermissoes() {
+  return CARGA && typeof CARGA.pv === "number" ? CARGA.pv : 0;
+}
+
+export default {
+  registerApplication, adoptarSessao, verificarBilhete, esquecerBilhete,
+  podeFazer, minhasPermissoes, versaoPermissoes,
+};
