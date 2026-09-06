@@ -161,7 +161,8 @@ jobs:
              and p.proname not in ('has_permission', 'jireh_has_permission',
                                    'jireh_has_permission_legado',
                                    'shaar_divergencia_real',
-                                   'shaar_divergencia_real_resumo')
+                                   'shaar_divergencia_real_resumo',
+                                   'shaar_impersonacao_funciona')
              and pg_get_functiondef(p.oid) ~ 'jireh_has_permission_legado';
           select 'FORA_DA_CENTRAL_POR_APP|' ||
                  coalesce(string_agg(app || ': ' || n, ', ' order by n desc), 'nenhuma')
@@ -182,7 +183,8 @@ jobs:
                      and f.proname not in ('has_permission', 'jireh_has_permission',
                                            'jireh_has_permission_legado',
                                            'shaar_divergencia_real',
-                                           'shaar_divergencia_real_resumo')
+                                           'shaar_divergencia_real_resumo',
+                                           'shaar_impersonacao_funciona')
                      and pg_get_functiondef(f.oid) ~ 'jireh_has_permission_legado'
                 ) src
                 cross join lateral regexp_matches(
