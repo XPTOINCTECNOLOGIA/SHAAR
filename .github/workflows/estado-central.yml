@@ -8,12 +8,31 @@ name: Estado da Central de Permissionamento
 # auditável — corre com as credenciais do repositório, deixa registo em cada
 # execução, e qualquer pessoa da equipa pode lê-lo sem ter acesso à máquina.
 #
-# O número que importa é a DIVERGÊNCIA. Enquanto for zero, a Central sabe
-# responder exactamente o que cada aplicação já decide, e trocar a autoridade
-# de mais uma aplicação não muda nada para quem trabalha. Se subir acima de
-# zero, alguém mexeu num modelo antigo e as duas realidades começaram a
-# afastar-se: é aí que se pára, e não depois. Por isso o job fica VERMELHO —
-# um relatório que ninguém lê não protege nada; um job vermelho lê-se.
+# O QUE ESTE RELATÓRIO VIGIA, e o que deixou de vigiar (migração 024)
+# -------------------------------------------------------------------
+# Durante a migração, o número que importava era a DIVERGÊNCIA contra o modelo
+# antigo de perfis: enquanto fosse zero, trocar a autoridade de mais uma
+# aplicação não mudava nada para quem trabalha. Era o critério certo para
+# atravessar, e o errado para ficar. Como invariante permanente, proibia usar a
+# Central — conceder ou revogar uma permissão a uma pessoa fazia-a subir, e o
+# painel ficava vermelho por se ter decidido.
+#
+# O modelo antigo passou a ser um retrato datado. A diferença entre ele e a
+# Central é hoje a lista das decisões tomadas desde a migração, e é suposto
+# crescer. Fica no relatório como informação, não como alarme.
+#
+# O que fica VERMELHO é o que continua a valer daqui a dez anos, quando o
+# modelo antigo não for memória de ninguém:
+#
+#   INTEGRIDADE do registo — o gatilho que escreve o histórico ligado, nenhuma
+#     concessão sem evento, nenhuma sem motivo, o histórico não editável. Sem
+#     isto não há decisão, há só o estado actual sem ninguém que responda por
+#     ele, e nenhum outro número deste relatório se pode acreditar.
+#   IDENTIDADE — quem pergunta tem de ser uma pessoa só.
+#   TESTES — o comportamento fixado em casos de referência.
+#
+# Um job vermelho lê-se; um job que fica vermelho por se trabalhar ensina a
+# ignorar alarmes, e é por isso que a linha se mudou em vez de se afrouxar.
 #
 # O segundo número que importa é a IDENTIDADE. A Central resolve quem está a
 # pedir por `auth_user_id` OU por e-mail — tem de ser assim, porque há dois
@@ -70,13 +89,21 @@ jobs:
           set -euo pipefail
 
           cat > consulta.sql <<'FIMSQL'
-          select 'DIVERGENCIA|' || count(*) from public.shaar_permissao_divergencias;
+          -- Informativa desde a 024: e a distancia ao retrato do modelo antigo,
+          -- ou seja o volume de decisoes tomadas desde a migracao. Ja nao poe o
+          -- job vermelho.
+          select 'DISTANCIA_AO_RETRATO|' || count(*) from public.shaar_permissao_divergencias;
           select 'REAL_TETELESTAI|controlo ' || r.controlo_positivos
                  || ' / perde ' || r.perdia
                  || ' / ganha sem revisao ' || r.ganha_sem_revisao
                  || ' / ganha com revisao ' || (r.ganharia - r.ganha_sem_revisao)
                  || ' / pares ' || r.pares_avaliados
             from public.shaar_divergencia_real_resumo('TETELESTAI') r;
+          -- As tres linhas REAL_* comparam a Central com a funcao legada de cada
+          -- aplicacao, pessoa a pessoa. Foram o criterio de passagem da troca e
+          -- ficam como memoria dela; desde a 024 sao informativas, porque
+          -- qualquer concessao ou revogacao decidida hoje as faz mexer — e isso
+          -- e o sistema a ser usado, nao uma falha.
           -- O BNEI e o TIKKUN tem funcoes proprias, e o TIKKUN nem sequer aparece
           -- na comparacao modelada — o modelo dele e uma funcao que depende de
           -- quem pergunta, e isso nao se escreve numa vista. Sem estas duas
@@ -91,15 +118,20 @@ jobs:
                  || ' / ganha sem revisao ' || r.ganha_sem_revisao
                  || ' / pares ' || r.pares_avaliados
             from public.shaar_divergencia_real_resumo('TIKKUN', 'tikkun_capacidade_legada') r;
-          -- A permissao e da pessoa; o portao diz se ela entra hoje. Se um
-          -- direito do modelo antigo nao estiver guardado, abrir o portao a
-          -- essa pessoa amanha nao lhe daria nada — e esse e o unico sentido
-          -- em que uma permissao se perde de verdade.
-          select 'DIREITOS_POR_GUARDAR|' || count(*)
-            from public.shaar_permissao_verdade_antiga a
-            left join public.shaar_permission_grant g
-              on g.user_id = a.user_id and g.app_code = a.app_code and g.code = a.code
-           where g.user_id is null;
+          -- O modelo antigo e um RETRATO datado (migracao 024), nao uma verdade
+          -- viva. A diferenca entre ele e a Central nao e divergencia — sao as
+          -- decisoes tomadas desde entao, e e suposto que cresca. Um numero
+          -- aqui e trabalho feito, nao alarme.
+          select 'DECISOES_DESDE_A_MIGRACAO|' || coalesce(
+                   (select string_agg(tipo || ': ' || quantas || ' (' || pessoas || ' pessoas)', '; ')
+                      from public.shaar_decisoes_desde_a_migracao()), 'nenhuma ainda');
+
+          -- ISTO e o que passa a merecer alarme. Nao "continua igual ao modelo
+          -- antigo?", que proibia decidir, mas "toda a mudanca teve uma decisao
+          -- por tras?". Continua a valer quando o modelo antigo nao for memoria
+          -- de ninguem.
+          select 'INTEGRIDADE|' || indicador || '=' || valor::text
+            from public.shaar_integridade_do_registo();
           select 'DIREITOS_SEM_PORTAO|' || coalesce(
                    string_agg(app_code || ' ' || n, ', ' order by app_code), 'nenhum')
             from (
@@ -328,73 +360,70 @@ jobs:
             done
           } >> "$GITHUB_STEP_SUMMARY"
 
-          DIV=$(printf '%s\n' "$SAIDA" | awk -F'|' '/^DIVERGENCIA\|/{print $2}' | tr -d '[:space:]')
-          REAL=$(printf '%s\n' "$SAIDA" | awk -F'|' '/^REAL_TETELESTAI\|/{print $2}')
-          R_CTL=$(printf '%s\n' "$REAL" | awk '{print $2}')
-          R_PER=$(printf '%s\n' "$REAL" | awk '{print $5}')
-          R_GSR=$(printf '%s\n' "$REAL" | awk '{print $10}')
-          for APLIC in BNEI TIKKUN; do
-            L=$(printf '%s\n' "$SAIDA" | awk -F'|' -v a="REAL_${APLIC}" '$1 == a {print $2}')
-            C=$(printf '%s\n' "$L" | awk '{print $2}')
-            P=$(printf '%s\n' "$L" | awk '{print $5}')
-            G=$(printf '%s\n' "$L" | awk '{print $10}')
-            if [ "${C:-0}" = "0" ]; then
-              echo "::error::O controlo da impersonacao do ${APLIC} deu zero: a medicao nao esta a funcionar e os numeros dela nao valem nada."
-              FALHOU=1
-            fi
-            if [ "${P:-x}" != "0" ]; then
-              echo "::error::${P} respostas em que alguem COM portao perde acesso no ${APLIC}."
-              FALHOU=1
-            fi
-            if [ "${G:-x}" != "0" ]; then
-              echo "::error::${G} respostas de acesso novo no ${APLIC} a gente sem revisao aberta."
-              FALHOU=1
-            fi
-          done
-          AMB=$(printf '%s\n' "$SAIDA" | awk -F'|' '/^IDENTIDADE_AMBIGUA\|/{print $2}' | tr -d '[:space:]')
-          VAZ=$(printf '%s\n' "$SAIDA" | awk -F'|' '/^IDENTIDADE_EMAIL_VAZIO\|/{print $2}' | tr -d '[:space:]')
-          TA=$(printf '%s\n' "$SAIDA" | awk -F'|' '/^TESTES_AUTORIZACAO\|/{print $2}')
-          TE=$(printf '%s\n' "$SAIDA" | awk -F'|' '/^TESTES_ESCOPO\|/{print $2}')
-
+          # ----------------------------------------------------------------
+          # O QUE FICA VERMELHO, E PORQUE MUDOU
+          # ----------------------------------------------------------------
+          # Ate a migracao 024, as linhas vermelhas eram comparacoes com o mundo
+          # antigo: divergencia contra o modelo de perfis, "perde acesso" e
+          # "ganha sem revisao" contra a funcao legada de cada aplicacao. Faziam
+          # sentido enquanto se trocava a autoridade — provavam que a troca nao
+          # mexia em nada. Como invariantes permanentes proibiam usar a Central:
+          # conceder ou revogar uma permissao a uma pessoa fazia disparar as
+          # tres. Um sistema de permissionamento individual com um alarme que
+          # dispara ao permissionar individualmente nao serve para nada.
+          #
+          # Passam a ser informativas. O que fica vermelho e o que continua a
+          # valer daqui a dez anos: a identidade de quem pergunta, o
+          # comportamento fixado nos testes, e a integridade do registo — se
+          # toda a mudanca deixou rasto de quem a decidiu e porque.
           FALHOU=0
-          if [ "${DIV:-x}" != "0" ]; then
-            echo "::error::Divergencia ${DIV} entre a Central e os modelos antigos. Nao trocar a autoridade de mais nenhuma aplicacao ate voltar a zero, e descobrir quem mexeu no modelo antigo."
+
+          INTEG=$(printf '%s\n' "$SAIDA" | awk -F'|' '$1=="INTEGRIDADE"{print $2}')
+          if [ -z "$INTEG" ]; then
+            echo "::error::Nao consegui ler a integridade do registo. Sem ela, nada do resto deste relatorio se pode acreditar."
             FALHOU=1
           fi
-          # A regra da troca nao e "zero divergencias" — e mais fina. Ninguem pode
-          # PERDER acesso; alguem pode GANHAR, mas so com revisao aberta, ou seja
-          # so se houver alguem a quem foi pedido que confirme. E nada disto vale
-          # se o controlo da impersonacao nao for positivo.
-          if [ "${R_CTL:-0}" = "0" ]; then
-            echo "::error::O controlo da impersonacao deu zero: a funcao antiga nunca respondeu verdadeiro a ninguem com auth_user_id. A medicao da divergencia real nao esta a funcionar, e nenhum dos outros numeros dela vale nada."
+          for LINHA in $INTEG; do
+            IND=${LINHA%%=*}
+            VAL=${LINHA##*=}
+            [ "$VAL" = "0" ] && continue
+            case "$IND" in
+              gatilho_de_registo_desligado)
+                echo "::error::O gatilho shaar_grant_auditar esta desligado ou nao existe. As mudancas de permissao deixaram de ser registadas — e sem registo nao ha decisao, ha so o estado actual sem ninguem que responda por ele." ;;
+              concessoes_sem_registo)
+                echo "::error::${VAL} concessao(oes) activa(s) sem um unico evento no historico. Uma permissao que aparece sem deixar rasto e uma permissao que ninguem decidiu." ;;
+              concessoes_sem_motivo)
+                echo "::error::${VAL} concessao(oes) sem motivo escrito. Uma decisao sem razao registada nao se consegue rever: daqui a um ano ninguem sabe se ainda faz sentido." ;;
+              historico_editavel)
+                echo "::error::O historico de permissoes passou a poder ser editado por authenticated. Deixa de ser historico e passa a ser uma opiniao sobre o passado." ;;
+              *)
+                echo "::error::Indicador de integridade desconhecido a nao-zero: ${IND}=${VAL}." ;;
+            esac
             FALHOU=1
-          fi
-          GUARD=$(printf '%s\n' "$SAIDA" | awk -F'|' '/^DIREITOS_POR_GUARDAR\|/{print $2}' | tr -d '[:space:]')
-          if [ "${GUARD:-x}" != "0" ]; then
-            echo "::error::${GUARD} direitos do modelo antigo nao estao guardados na Central. A permissao e da pessoa e o portao e independente: se o direito nao estiver guardado, abrir o portao a essa pessoa amanha nao lhe da nada. E o unico sentido em que uma permissao se perde de verdade."
-            FALHOU=1
-          fi
-          if [ "${R_PER:-x}" != "0" ]; then
-            echo "::error::${R_PER} respostas em que alguem PERDE acesso por causa da troca. Isto nunca e aceitavel: reverter tirando a condicao do TETELESTAI de jireh_has_permission."
-            FALHOU=1
-          fi
-          if [ "${R_GSR:-x}" != "0" ]; then
-            echo "::error::${R_GSR} respostas em que alguem GANHA acesso sem ter revisao aberta — ou seja, sem que ninguem tenha sido chamado a decidir. E exactamente o que esta Central existe para impedir."
-            FALHOU=1
-          fi
+          done
+
+          VAZ=$(printf '%s\n' "$SAIDA" | awk -F'|' '/^IDENTIDADE_EMAIL_VAZIO\|/{print $2}' | tr -d '[:space:]')
           if [ "${VAZ:-x}" != "0" ]; then
             echo "::error::${VAZ} pessoa(s) activa(s) com e-mail vazio. O e-mail e chave de identidade: uma linha com e-mail vazio casa com qualquer pedido que chegue sem claim de e-mail. Preencher ou desactivar."
             FALHOU=1
           fi
+
+          AMB=$(printf '%s\n' "$SAIDA" | awk -F'|' '/^IDENTIDADE_AMBIGUA\|/{print $2}' | tr -d '[:space:]')
           if [ "${AMB:-x}" != "0" ]; then
             echo "::error::${AMB} e-mail(s) resolvem para mais do que uma pessoa. shaar_usuario_atual desempata com LIMIT 1, ou seja, arbitrariamente: alguem pode receber a autorizacao de outra pessoa. Resolver antes de qualquer outra coisa."
             FALHOU=1
           fi
+
+          TA=$(printf '%s\n' "$SAIDA" | awk -F'|' '/^TESTES_AUTORIZACAO\|/{print $2}')
+          TE=$(printf '%s\n' "$SAIDA" | awk -F'|' '/^TESTES_ESCOPO\|/{print $2}')
           for T in "$TA" "$TE"; do
             case "$T" in
               *"/"*) [ "${T%%/*}" = "${T##*/}" ] || { echo "::error::Testes de autorizacao a falhar: $T"; FALHOU=1; } ;;
               *) echo "::error::Nao consegui ler os testes: $T"; FALHOU=1 ;;
             esac
           done
+          FALHADOS=$(printf '%s\n' "$SAIDA" | awk -F'|' '/^TESTES_FALHADOS\|/{print $2}')
+          [ "${FALHADOS:-nenhum}" = "nenhum" ] || echo "::notice::Casos a falhar: ${FALHADOS}"
+
           [ "$FALHOU" = "0" ] || exit 1
-          echo "Divergencia zero e testes verdes. O contador dos sete dias continua."
+          echo "Registo integro, identidade sem ambiguidade e testes verdes."
