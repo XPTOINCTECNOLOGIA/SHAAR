@@ -52,25 +52,20 @@ jobs:
 
           cat > consulta.sql <<'FIMSQL'
           -- Os pares declarados. A regra em si, para se poder discutir a regra
-          -- e não só as suas consequências.
+          -- e nao so as suas consequencias. Os dois lados de cada par vivem
+          -- sempre na mesma aplicacao, por isso o nome dela nao se repete.
           select 'REGRA|' || c.app_a || '/' || c.code_a
-                 || '|' || c.app_b || '/' || c.code_b
+                 || ' + ' || c.code_b
                  || '|' || c.severidade
                  || '|' || c.motivo
             from public.shaar_permission_conflito c
            order by c.app_a, c.code_a;
 
-          -- Quem acumula os dois lados AGORA. Das concessoes, nao das revisoes.
-          select 'HOJE|' || u.full_name
-                 || '|' || u.email
-                 || '|' || c.app_a || '/' || c.code_a
-                 || '|' || c.app_b || '/' || c.code_b
-                 || '|' || case when pa.user_id is not null and pb.user_id is not null
-                                then 'entra nas duas'
-                                when pa.user_id is not null or pb.user_id is not null
-                                then 'entra numa'
-                                else 'nao entra em nenhuma' end
-                 || '|' || c.severidade
+          -- Quantas pessoas acumulam cada par AGORA. Das concessoes validas,
+          -- nao das revisoes: a revisao e um papel aberto no passado, o par
+          -- acumulado e um facto do presente.
+          select 'POR_PAR|' || c.app_a || '/' || c.code_a || ' + ' || c.code_b
+                 || '|' || count(distinct ga.user_id)::text
             from public.shaar_permission_conflito c
             join public.shaar_permission_grant ga
               on ga.app_code = c.app_a and ga.code = c.code_a
@@ -84,24 +79,7 @@ jobs:
              and gb.valido_de <= now()
              and (gb.valido_ate is null or gb.valido_ate > now())
             join public.users u on u.id = ga.user_id and u.active
-            left join public.shaar_gate_access pa
-              on pa.user_id = u.id and pa.app_code = c.app_a
-            left join public.shaar_gate_access pb
-              on pb.user_id = u.id and pb.app_code = c.app_b
-           order by c.app_a, c.code_a, u.full_name;
-
-          -- Quantas pessoas por par, agora.
-          select 'HOJE_POR_PAR|' || c.app_a || '/' || c.code_a
-                 || ' + ' || c.app_b || '/' || c.code_b
-                 || '|' || count(distinct ga.user_id)::text
-            from public.shaar_permission_conflito c
-            join public.shaar_permission_grant ga
-              on ga.app_code = c.app_a and ga.code = c.code_a and ga.efeito = 'permitir'
-            join public.shaar_permission_grant gb
-              on gb.user_id = ga.user_id
-             and gb.app_code = c.app_b and gb.code = c.code_b and gb.efeito = 'permitir'
-            join public.users u on u.id = ga.user_id and u.active
-           group by c.app_a, c.code_a, c.app_b, c.code_b
+           group by c.app_a, c.code_a, c.code_b
            order by 1;
 
           -- A fila administrativa, por par. Conta papeis, nao pessoas.
@@ -113,14 +91,13 @@ jobs:
            group by r.detalhe ->> 'par'
            order by 1;
 
-          select 'TOTAL_REVISOES|' || count(*)::text
-                 || '|' || count(distinct user_id)::text
+          select 'TOTAL|' || count(*)::text || '|' || count(distinct user_id)::text
             from public.shaar_permission_revisao
            where gatilho = 'conflito' and resolvido_em is null;
 
           -- Revisoes abertas cujo conflito ja nao existe: a permissao de um dos
           -- lados foi revogada depois de o aviso ter sido dado. Fecham-se sem
-          -- decidir nada, e e por isso que se contam a parte.
+          -- decidir nada, e por isso contam-se a parte.
           select 'REVISAO_SEM_CONFLITO|' || count(*)::text
             from public.shaar_permission_revisao r
            where r.gatilho = 'conflito' and r.resolvido_em is null
@@ -135,6 +112,42 @@ jobs:
                   and gb.code = c.code_b and gb.efeito = 'permitir'
                 where c.app_a || '/' || c.code_a || ' + ' || c.app_b || '/' || c.code_b
                       = r.detalhe ->> 'par');
+
+          -- A lista que se decide, uma linha por PESSOA. Fica em ultimo lugar
+          -- de proposito: o `az vm run-command` corta a saida pelo principio,
+          -- portanto o que importa imprime-se no fim.
+          with acumula as (
+            select ga.user_id,
+                   c.app_a || '/' || c.code_a || ' + ' || c.code_b as rotulo,
+                   (pa.user_id is not null and pb.user_id is not null) as entra_nas_duas
+              from public.shaar_permission_conflito c
+              join public.shaar_permission_grant ga
+                on ga.app_code = c.app_a and ga.code = c.code_a
+               and ga.efeito = 'permitir'
+               and ga.valido_de <= now()
+               and (ga.valido_ate is null or ga.valido_ate > now())
+              join public.shaar_permission_grant gb
+                on gb.user_id = ga.user_id
+               and gb.app_code = c.app_b and gb.code = c.code_b
+               and gb.efeito = 'permitir'
+               and gb.valido_de <= now()
+               and (gb.valido_ate is null or gb.valido_ate > now())
+              left join public.shaar_gate_access pa
+                on pa.user_id = ga.user_id and pa.app_code = c.app_a
+              left join public.shaar_gate_access pb
+                on pb.user_id = ga.user_id and pb.app_code = c.app_b
+          )
+          select 'PESSOA|' || u.email
+                 || '|' || u.full_name
+                 || '|' || count(*)::text
+                 || '|' || string_agg(a.rotulo
+                             || case when a.entra_nas_duas then ''
+                                     else ' (portao fechado)' end,
+                             ' ; ' order by a.rotulo)
+            from acumula a
+            join public.users u on u.id = a.user_id and u.active
+           group by u.email, u.full_name
+           order by count(*) desc, u.email;
           FIMSQL
 
           B64=$(base64 -w0 consulta.sql)
@@ -165,7 +178,17 @@ jobs:
           }
 
           esperar_a_vm "$REMOTE" || exit 1
-          SAIDA=$(printf '%s\n' "$SAIDA_AZ" | awk '/===INICIO===/{f=1;next} /===FIM===/{f=0} f' | grep '|' || true)
+          # O `az vm run-command` corta a saida PELO PRINCIPIO quando ela e longa,
+          # e o marcador de inicio e a primeira coisa a desaparecer. Filtrar pelos
+          # prefixos em vez da janela entre marcadores faz a leitura sobreviver ao
+          # corte; e se o marcador faltar, isso diz-se em vez de se fingir que a
+          # lista esta completa.
+          SAIDA=$(printf '%s\n' "$SAIDA_AZ" \
+                  | grep -E '^(REGRA|POR_PAR|REVISAO_POR_PAR|TOTAL|REVISAO_SEM_CONFLITO|PESSOA)\|' || true)
+
+          if ! printf '%s\n' "$SAIDA_AZ" | grep -q '===INICIO==='; then
+            echo "::warning::A saida da VM veio cortada no inicio (limite do az vm run-command): faltam linhas, e as que faltam sao as primeiras."
+          fi
 
           if [ -z "$SAIDA" ]; then
             echo "::error::Nao consegui ler os conflitos. Saida em bruto:"
@@ -178,17 +201,17 @@ jobs:
           {
             echo "## Conflitos de segregação de funções"
             echo ""
-            echo "### Quem acumula os dois lados HOJE"
+            echo "### Quem acumula pares HOJE"
             echo ""
-            echo "| Pessoa | E-mail | Um lado | Outro lado | Portão | Severidade |"
-            echo "|---|---|---|---|---|---|"
-            printf '%s\n' "$SAIDA" | awk -F'|' '$1=="HOJE"{printf "| %s | %s | %s | %s | %s | %s |\n",$2,$3,$4,$5,$6,$7}'
+            echo "| Pessoa | E-mail | Pares | Quais |"
+            echo "|---|---|---|---|"
+            printf '%s\n' "$SAIDA" | awk -F'|' '$1=="PESSOA"{printf "| %s | %s | %s | %s |\n",$3,$2,$4,$5}'
             echo ""
             echo "### Pessoas por par, agora"
             echo ""
             echo "| Par | Pessoas |"
             echo "|---|---|"
-            printf '%s\n' "$SAIDA" | awk -F'|' '$1=="HOJE_POR_PAR"{printf "| %s | %s |\n",$2,$3}'
+            printf '%s\n' "$SAIDA" | awk -F'|' '$1=="POR_PAR"{printf "| %s | %s |\n",$2,$3}'
             echo ""
             echo "### Fila de revisão (papéis abertos, não pessoas)"
             echo ""
@@ -198,7 +221,7 @@ jobs:
             echo ""
             echo "### A regra"
             echo ""
-            echo "| Um lado | Outro lado | Severidade | Motivo |"
-            echo "|---|---|---|---|"
-            printf '%s\n' "$SAIDA" | awk -F'|' '$1=="REGRA"{printf "| %s | %s | %s | %s |\n",$2,$3,$4,$5}'
+            echo "| Par | Severidade | Motivo |"
+            echo "|---|---|---|"
+            printf '%s\n' "$SAIDA" | awk -F'|' '$1=="REGRA"{printf "| %s | %s | %s |\n",$2,$3,$4}'
           } >> "$GITHUB_STEP_SUMMARY"
