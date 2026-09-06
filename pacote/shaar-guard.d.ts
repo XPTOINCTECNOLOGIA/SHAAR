@@ -85,6 +85,17 @@ export function verificarBilhete(
   opcoes?: Partial<Opcoes>,
 ): Promise<Veredicto>;
 
+/**
+ * Adopta a sessão no cliente Supabase da aplicação e confirma que colou.
+ * Se não colar, devolve a pessoa ao SHAAR em vez de deixar a aplicação
+ * mostrar o seu próprio ecrã de login.
+ */
+export function adoptarSessao(
+  supabase: { auth: { setSession: Function; getSession: Function } },
+  eu: Identidade | null,
+  opcoes?: Partial<Opcoes>,
+): Promise<boolean>;
+
 /** Apaga o bilhete guardado nesta aba. */
 export function esquecerBilhete(app: string): void;
 

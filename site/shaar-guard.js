@@ -187,4 +187,39 @@ export async function registerApplication(opcoes = {}) {
   return { ...v.dados, sessao: colhido && colhido.sessao };
 }
 
-export default { registerApplication, verificarBilhete, esquecerBilhete };
+/**
+ * Adopta a sessão no cliente Supabase da aplicação e CONFIRMA que colou.
+ *
+ * Se não colar, manda de volta ao SHAAR em vez de deixar a aplicação mostrar
+ * o seu próprio ecrã de login — que é o defeito que se quer eliminar: quem
+ * já entrou no SHAAR nunca deve ver uma segunda caixa de senha.
+ */
+export async function adoptarSessao(supabase, eu, opcoes = {}) {
+  const cfg = { ...PADRAO, ...opcoes };
+  try {
+    if (eu && eu.sessao && eu.sessao.access_token) {
+      await supabase.auth.setSession({
+        access_token: eu.sessao.access_token,
+        refresh_token: eu.sessao.refresh_token || "",
+      });
+    }
+    const { data } = await supabase.auth.getSession();
+    if (data && data.session) return true;
+
+    console.warn(`[shaar-guard] ${cfg.app}: a sessão não colou`);
+    if (cfg.modo !== "observar") {
+      esquecerBilhete(cfg.app);
+      irAoShaar(cfg, cfg.app, "sessao_nao_colou");
+    }
+    return false;
+  } catch (e) {
+    console.warn(`[shaar-guard] ${cfg.app}: erro ao adoptar a sessão:`, e);
+    if (cfg.modo !== "observar") {
+      esquecerBilhete(cfg.app);
+      irAoShaar(cfg, cfg.app, "sessao_erro");
+    }
+    return false;
+  }
+}
+
+export default { registerApplication, adoptarSessao, verificarBilhete, esquecerBilhete };

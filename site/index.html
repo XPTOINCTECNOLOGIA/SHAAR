@@ -1638,6 +1638,26 @@
     } catch (e) { return null; }
   }
 
+  // Troca o refresh token por um par novo. Devolve a sessão guardada quando
+  // não for possível — melhor entregar o que se tem do que não entregar nada.
+  async function renovarSessao(){
+    const s = lerSessao();
+    if (!CONFIGURADO || !s || !s.refresh) return s;
+    try {
+      const r = await fetch(`${CFG.url}/auth/v1/token?grant_type=refresh_token`, {
+        method: "POST",
+        headers: { "apikey": CFG.anonKey, "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: s.refresh }),
+      });
+      if (!r.ok) return s;
+      const d = await r.json();
+      if (!d || !d.access_token) return s;
+      const nova = { token: d.access_token, refresh: d.refresh_token || s.refresh, email: s.email };
+      guardarSessao(nova);
+      return nova;
+    } catch (e) { return s; }
+  }
+
   async function abrirApp(key){
     const url = (APPS[key] || {}).url;
     if (!url){
@@ -1655,7 +1675,11 @@
     // Vai no FRAGMENTO, que não é enviado ao servidor nem entra em log nem
     // viaja no Referer, sobre HTTPS, e a aplicação apaga-o da barra de
     // endereço assim que o consome.
-    const sessao = lerSessao();
+    // Renova a sessão antes de a entregar. O access token vive 15 minutos; se
+    // a pessoa deixou o SHAAR aberto, o que está guardado já pode estar
+    // vencido — e entregar um token vencido faz a aplicação cair no próprio
+    // login, que foi exactamente o defeito relatado.
+    const sessao = await renovarSessao();
     const parcelas = [`bilhete=${encodeURIComponent(b.bilhete)}`];
     if (sessao && sessao.token)   parcelas.push(`at=${encodeURIComponent(sessao.token)}`);
     if (sessao && sessao.refresh) parcelas.push(`rt=${encodeURIComponent(sessao.refresh)}`);
