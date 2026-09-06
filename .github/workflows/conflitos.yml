@@ -158,6 +158,20 @@ jobs:
 
           select 'RASTO_TOTAL|' || coalesce(sum(ocorrencias), 0)::text
             from public.shaar_segregacao_resumo();
+
+          -- Acto a acto, com data e objecto. Sao poucos, e a data e o que
+          -- distingue um facto de hoje de um registo anterior a regra existir.
+          select 'ACTO|' || t.app_code
+                 || '|' || t.regra
+                 || '|' || coalesce(u.email::text, '(id ' || t.user_id || ')')
+                 || '|' || t.objecto
+                 || '|' || coalesce(to_char(t.quando, 'YYYY-MM-DD HH24:MI'), '-')
+                 || '|' || case when u.id is null then 'sem registo'
+                                when not u.active then 'conta inactiva'
+                                else 'conta activa' end
+            from public.shaar_segregacao_no_rasto t
+            left join public.users u on u.id = t.user_id
+           order by t.quando desc nulls last;
           FIMSQL
 
           B64=$(base64 -w0 consulta.sql)
@@ -194,7 +208,7 @@ jobs:
           # corte; e se o marcador faltar, isso diz-se em vez de se fingir que a
           # lista esta completa.
           SAIDA=$(printf '%s\n' "$SAIDA_AZ" \
-                  | grep -E '^(REGRA|POR_PAR|REVISAO_POR_PAR|TOTAL|REVISAO_SEM_CONFLITO|PESSOA|RASTO|RASTO_TOTAL)\|' || true)
+                  | grep -E '^(REGRA|POR_PAR|REVISAO_POR_PAR|TOTAL|REVISAO_SEM_CONFLITO|PESSOA|RASTO|RASTO_TOTAL|ACTO)\|' || true)
 
           if ! printf '%s\n' "$SAIDA_AZ" | grep -q '===INICIO==='; then
             echo "::warning::A saida da VM veio cortada no inicio (limite do az vm run-command): faltam linhas, e as que faltam sao as primeiras."
@@ -217,6 +231,10 @@ jobs:
             echo "|---|---|---|---|---|---|"
             printf '%s\n' "$SAIDA" | awk -F'|' '$1=="RASTO"{printf "| %s | %s | %s | %s | %s | %s |\n",$2,$3,$4,$5,$6,$7}'
             printf '%s\n' "$SAIDA" | awk -F'|' '$1=="RASTO_TOTAL" && $2=="0"{print "\n_Nenhum acto encontrado: em nenhum processo a mesma pessoa assinou os dois passos._"}'
+            echo ""
+            echo "| Aplicação | Regra | Quem | Objecto | Quando | Conta |"
+            echo "|---|---|---|---|---|---|"
+            printf '%s\n' "$SAIDA" | awk -F'|' '$1=="ACTO"{printf "| %s | %s | %s | %s | %s | %s |\n",$2,$3,$4,$5,$6,$7}'
             echo ""
             echo "### Quem PODE fazer os dois passos"
             echo ""
