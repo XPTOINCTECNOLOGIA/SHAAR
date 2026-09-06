@@ -63,7 +63,12 @@ begin
   v_ident := pg_get_function_identity_arguments(v_oid);
 
   -- 1. A COPIA LEGADA, feita pela base a partir do seu proprio texto.
-  if to_regprocedure('public.jireh_has_permission_legado(' || v_ident || ')') is null then
+  --    A existencia pergunta-se ao catalogo, nao com to_regprocedure: o que
+  --    pg_get_function_identity_arguments devolve inclui o NOME do parametro
+  --    ("p_code character varying"), e regprocedure quer so tipos.
+  if not exists (
+       select 1 from pg_proc p2 join pg_namespace n2 on n2.oid = p2.pronamespace
+        where n2.nspname = 'public' and p2.proname = 'jireh_has_permission_legado') then
     v_def := regexp_replace(pg_get_functiondef(v_oid),
                             'FUNCTION public\.jireh_has_permission\(',
                             'FUNCTION public.jireh_has_permission_legado(');
