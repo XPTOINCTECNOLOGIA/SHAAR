@@ -32,6 +32,11 @@ on:
         required: false
         default: ''
         type: string
+      funcao:
+        description: 'Nome exacto de UMA função cujo corpo se quer ver. Vazio = nenhuma.'
+        required: false
+        default: ''
+        type: string
 
 concurrency:
   group: levantamento
@@ -46,6 +51,7 @@ jobs:
         env:
           APP: ${{ inputs.app }}
           TAB: ${{ inputs.tabelas }}
+          FUN: ${{ inputs.funcao }}
         run: |
           set -euo pipefail
           echo "$APP" | grep -qE '^[A-Z][A-Z0-9_]{1,31}$' || {
@@ -54,7 +60,11 @@ jobs:
             echo "$TAB" | grep -qE '^[a-z0-9_%]{2,40}$' || {
               echo "::error::Padrao de tabela invalido: $TAB"; exit 1; }
           fi
-          echo "app=$APP tabelas=${TAB:-nenhuma}"
+          if [ -n "$FUN" ]; then
+            echo "$FUN" | grep -qE '^[a-z_][a-z0-9_]{2,60}$' || {
+              echo "::error::Nome de funcao invalido: $FUN"; exit 1; }
+          fi
+          echo "app=$APP tabelas=${TAB:-nenhuma} funcao=${FUN:-nenhuma}"
 
       - name: Login no Azure
         uses: azure/login@v2
@@ -67,6 +77,7 @@ jobs:
           VM: vm-supabase
           APP: ${{ inputs.app }}
           TAB: ${{ inputs.tabelas }}
+          FUN: ${{ inputs.funcao }}
         run: |
           set -euo pipefail
 
@@ -184,16 +195,23 @@ jobs:
            order by 1;
 
           \echo
-          \echo === CORPO DAS FUNCOES QUE VOU TOCAR ===
-          \echo Nao se reescreve o que nao se leu.
+          \echo === CADEIA DE PERMISSAO: QUE FUNCOES EXISTEM ===
+          select p.proname, pg_get_function_arguments(p.oid) as argumentos
+            from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+           where n.nspname = 'public' and p.prokind = 'f'
+             and (p.proname like '%has_permission%'
+               or p.proname in ('current_app_user_id','shaar_usuario_atual'))
+           order by 1;
+
+          \echo
+          \echo === CORPO DE UMA FUNCAO ===
+          \echo Uma de cada vez: a saida do az vem truncada no inicio quando e longa,
+          \echo e despejar sete corpos de uma vez perde justamente o que interessa.
           select pg_get_functiondef(p.oid)
             from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-           where n.nspname = 'public'
-             and (p.proname like '%has_permission%'
-               or p.proname like '%_permissions%'
-               or p.proname in ('current_app_user_id','shaar_usuario_atual'))
-             and p.prokind = 'f'
-           order by p.proname;
+           where n.nspname = 'public' and p.prokind = 'f'
+             and :'fun' <> '' and p.proname = :'fun'
+           limit 1;
           FIMSQL
 
           B64=$(base64 -w0 consulta.sql)
@@ -202,7 +220,7 @@ jobs:
           echo '$B64' | base64 -d > /tmp/levantamento.sql
           echo '===INICIO==='
           docker exec -i -e PGPASSWORD=\"\$PGPW\" supabase-db psql -U postgres -h 127.0.0.1 \
-            -v app='$APP' -v tab='$TAB' -f - < /tmp/levantamento.sql
+            -v app='$APP' -v tab='$TAB' -v fun='$FUN' -f - < /tmp/levantamento.sql
           echo '===FIM==='
           rm -f /tmp/levantamento.sql"
 
