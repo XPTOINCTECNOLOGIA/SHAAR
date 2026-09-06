@@ -182,6 +182,15 @@ jobs:
            where n.nspname = 'public'
              and p.proname in ('has_permission','shaar_pode','shaar_porque')
            order by 1;
+
+          \echo
+          \echo === CORPO DAS FUNCOES QUE VOU TOCAR ===
+          \echo Nao se reescreve o que nao se leu.
+          select pg_get_functiondef(p.oid)
+            from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+           where n.nspname = 'public'
+             and p.proname in ('has_permission','current_app_user_id','shaar_usuario_atual')
+           order by p.proname;
           FIMSQL
 
           B64=$(base64 -w0 consulta.sql)
