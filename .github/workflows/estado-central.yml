@@ -114,6 +114,18 @@ jobs:
             from public.shaar_correr_testes();
           select 'TESTES_ESCOPO|' || count(*) filter (where passou) || '/' || count(*)
             from public.shaar_correr_testes_escopo();
+          -- Um alarme que diz "8/10" e nao diz quais e um alarme que se ignora.
+          -- O nome do caso, o que se esperava e o que se obteve chegam para
+          -- saber se partiu a autorizacao ou se partiu o teste.
+          select 'TESTES_FALHADOS|' || coalesce(string_agg(
+                   t.descricao || ' [esperado ' || t.esperado
+                   || ', obtido ' || coalesce(t.obtido::text, 'nulo') || ']', '; '
+                   order by t.id), 'nenhum')
+            from public.shaar_correr_testes() t
+           where not t.passou;
+          select 'TESTES_ESCOPO_FALHADOS|' || coalesce(string_agg(t.caso, '; '), 'nenhum')
+            from public.shaar_correr_testes_escopo() t
+           where not t.passou;
           select 'CATALOGO|' || count(*) || ' permissoes em ' || count(distinct app_code) || ' aplicacoes'
             from public.shaar_permission;
           select 'CONCESSOES|' || count(*) || ' para ' || count(distinct user_id) || ' pessoas'
@@ -311,7 +323,7 @@ jobs:
           R_PER=$(printf '%s\n' "$REAL" | awk '{print $5}')
           R_GSR=$(printf '%s\n' "$REAL" | awk '{print $10}')
           for APLIC in BNEI TIKKUN; do
-            L=$(printf '%s\n' "$SAIDA" | awk -F'|' -v a="^REAL_${APLIC}\\|" '$0 ~ a {print $2}')
+            L=$(printf '%s\n' "$SAIDA" | awk -F'|' -v a="REAL_${APLIC}" '$1 == a {print $2}')
             C=$(printf '%s\n' "$L" | awk '{print $2}')
             P=$(printf '%s\n' "$L" | awk '{print $5}')
             G=$(printf '%s\n' "$L" | awk '{print $10}')
