@@ -222,6 +222,62 @@ jobs:
                group by sp.code
               having count(distinct sp.app_code) > 1
             ) d;
+          -- O QUE O CODIGO PERGUNTA, e nao o que as tabelas dizem.
+          -- CODIGOS_ANTIGOS_FORA_DO_CATALOGO compara duas TABELAS. Se uma
+          -- aplicacao pedir no codigo um codigo que nunca esteve em
+          -- public.permissions, os dois lados concordam e o buraco fica
+          -- invisivel. Isto le os literais que as politicas RLS e os corpos das
+          -- funcoes passam a has_permission(...) e a shaar_pode(app, codigo), e
+          -- compara-os com o catalogo.
+          with fontes as (
+            select coalesce(pg_get_expr(pol.polqual, pol.polrelid), '') || ' '
+                || coalesce(pg_get_expr(pol.polwithcheck, pol.polrelid), '') as t
+              from pg_policy pol
+            union all
+            select pr.prosrc
+              from pg_proc pr join pg_namespace n on n.oid = pr.pronamespace
+             where n.nspname = 'public'
+          ),
+          um_arg as (
+            select (regexp_matches(t, 'has_permission\s*\(+\s*''([^'']+)''', 'g'))[1] as code
+              from fontes
+          ),
+          dois_args as (
+            select (regexp_matches(t, 'shaar_pode\s*\(+\s*''([^'']+)''\s*,\s*''([^'']+)''', 'g'))[2] as code
+              from fontes
+          ),
+          pedidos as (
+            select code from um_arg union select code from dois_args
+          )
+          select 'CODIGOS_PEDIDOS_PELO_CODIGO|' || (select count(*) from pedidos)::text
+                 || ' pedidos, fora do catalogo: '
+                 || coalesce((select string_agg(code, ', ' order by code)
+                                from pedidos
+                               where code not in (select sp.code from public.shaar_permission sp)),
+                             'nenhum');
+
+          -- O ponto cego desta medicao, dito em voz alta: uma chamada cujo
+          -- argumento seja uma variavel e nao um literal nao e apanhada por
+          -- expressao regular nenhuma. Se este numero for maior que zero, ha
+          -- decisoes que esta linha nao consegue ver.
+          with fontes as (
+            select coalesce(pg_get_expr(pol.polqual, pol.polrelid), '') || ' '
+                || coalesce(pg_get_expr(pol.polwithcheck, pol.polrelid), '') as t
+              from pg_policy pol
+            union all
+            select pr.prosrc
+              from pg_proc pr join pg_namespace n on n.oid = pr.pronamespace
+             where n.nspname = 'public'
+          ),
+          chamadas as (
+            select count(*) as n from fontes, regexp_matches(t, 'has_permission\s*\(', 'g')
+          ),
+          com_literal as (
+            select count(*) as n from fontes, regexp_matches(t, 'has_permission\s*\(+\s*''[^'']+''', 'g')
+          )
+          select 'CHAMADAS_SEM_LITERAL|' || greatest((select n from chamadas) - (select n from com_literal), 0)::text
+                 || ' de ' || (select n from chamadas)::text;
+
           select 'CODIGOS_ANTIGOS_FORA_DO_CATALOGO|' || count(distinct p.code)
             from public.permissions p
            where not exists (select 1 from public.shaar_permission sp where sp.code = p.code);
