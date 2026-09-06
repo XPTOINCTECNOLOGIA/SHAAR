@@ -189,7 +189,10 @@ jobs:
           select pg_get_functiondef(p.oid)
             from pg_proc p join pg_namespace n on n.oid = p.pronamespace
            where n.nspname = 'public'
-             and p.proname in ('has_permission','current_app_user_id','shaar_usuario_atual')
+             and (p.proname like '%has_permission%'
+               or p.proname like '%_permissions%'
+               or p.proname in ('current_app_user_id','shaar_usuario_atual'))
+             and p.prokind = 'f'
            order by p.proname;
           FIMSQL
 
