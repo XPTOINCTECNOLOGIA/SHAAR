@@ -125,8 +125,12 @@ jobs:
                  coalesce(string_agg(p.proname, ', ' order by p.proname), 'nenhuma')
             from pg_proc p join pg_namespace n on n.oid = p.pronamespace
            where n.nspname = 'public' and p.prokind = 'f'
+             -- As funcoes de diagnostico chamam a legada de proposito: e o
+             -- que elas fazem. Nao sao decisoes por fora da Central.
              and p.proname not in ('has_permission', 'jireh_has_permission',
-                                   'jireh_has_permission_legado')
+                                   'jireh_has_permission_legado',
+                                   'shaar_divergencia_real',
+                                   'shaar_divergencia_real_resumo')
              and pg_get_functiondef(p.oid) ~ 'jireh_has_permission_legado';
           select 'FORA_DA_CENTRAL_POR_APP|' ||
                  coalesce(string_agg(app || ': ' || n, ', ' order by n desc), 'nenhuma')
@@ -145,7 +149,9 @@ jobs:
                     from pg_proc f join pg_namespace n on n.oid = f.pronamespace
                    where n.nspname = 'public' and f.prokind = 'f'
                      and f.proname not in ('has_permission', 'jireh_has_permission',
-                                           'jireh_has_permission_legado')
+                                           'jireh_has_permission_legado',
+                                           'shaar_divergencia_real',
+                                           'shaar_divergencia_real_resumo')
                      and pg_get_functiondef(f.oid) ~ 'jireh_has_permission_legado'
                 ) src
                 cross join lateral regexp_matches(
