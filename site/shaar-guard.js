@@ -233,6 +233,35 @@ export async function registerApplication(opcoes = {}) {
 }
 
 /**
+ * Pergunta ao gateway se a chave pública desta aplicação ainda é aceite.
+ *
+ * Setembro de 2026: três aplicações ficaram em ciclo entre o SHAAR e a sua
+ * própria porta. Nenhuma tinha defeito na fronteira — tinham sido publicadas
+ * com uma chave anon que já não existia (uma anterior à rotação do segredo,
+ * outra com o literal "teste"). O gateway respondia 401 em `text/plain`, o
+ * supabase-js tentava lê-lo como JSON e devolvia AuthUnknownError, e a pessoa
+ * ficava a saltar entre dois sítios sem uma palavra sobre o que se passava.
+ *
+ * Voltar ao SHAAR não conserta uma chave morta: só repete a viagem. Por isso,
+ * antes de mandar alguém de volta, perguntamos. Se a chave for recusada,
+ * paramos e dizemos o nome do defeito — que é trabalho de quem publica, não
+ * de quem está a tentar entrar.
+ */
+async function chaveAceite(supabase, cfg) {
+  try {
+    const base = supabase && (supabase.supabaseUrl || (supabase.rest && supabase.rest.url));
+    const chave = supabase && supabase.supabaseKey;
+    if (!chave) return true;          // sem forma de saber: não acusamos ninguém
+    const r = await fetch(`${String(base || cfg.api).replace(/\/rest\/v1\/?$/, "")}/auth/v1/settings`, {
+      headers: { apikey: chave },
+    });
+    return r.status !== 401 && r.status !== 403;
+  } catch (e) {
+    return true;                       // rede em baixo não é chave errada
+  }
+}
+
+/**
  * Adopta a sessão no cliente Supabase da aplicação e CONFIRMA que colou.
  *
  * Se não colar, manda de volta ao SHAAR em vez de deixar a aplicação mostrar
@@ -242,21 +271,44 @@ export async function registerApplication(opcoes = {}) {
 export async function adoptarSessao(supabase, eu, opcoes = {}) {
   const cfg = { ...PADRAO, ...opcoes };
   try {
-    if (eu && eu.sessao && eu.sessao.access_token) {
+    const ses = eu && eu.sessao;
+
+    // Camada 1 — o par completo. Caminho normal.
+    if (ses && ses.access_token) {
       const r = await supabase.auth.setSession({
-        access_token: eu.sessao.access_token,
-        refresh_token: eu.sessao.refresh_token || "",
+        access_token: ses.access_token,
+        refresh_token: ses.refresh_token || "",
       });
       if (r && r.error) ULTIMO_ERRO = String(r.error.name || r.error.message).slice(0, 40);
     } else {
       ULTIMO_ERRO = "sem_sessao_no_fragmento";
     }
-    const { data } = await supabase.auth.getSession();
+
+    let { data } = await supabase.auth.getSession();
+
+    // Camada 2 — o access token pode ter vencido no caminho (vive 15 minutos).
+    // O refresh token e a credencial duravel: com ele a aplicacao emite o seu
+    // proprio par, sem depender da frescura do que recebeu.
+    if (!(data && data.session) && ses && ses.refresh_token) {
+      const r2 = await supabase.auth.refreshSession({ refresh_token: ses.refresh_token });
+      if (r2 && r2.error) ULTIMO_ERRO += `/${String(r2.error.name || r2.error.message).slice(0, 30)}`;
+      ({ data } = await supabase.auth.getSession());
+      if (data && data.session) console.info(`[shaar-guard] ${cfg.app}: sessão obtida pelo refresh`);
+    }
+
     if (data && data.session) { zerarVoltas(cfg.app); return true; }
 
     console.warn(`[shaar-guard] ${cfg.app}: a sessão não colou`);
     if (cfg.modo !== "observar") {
       esquecerBilhete(cfg.app);
+      if (!(await chaveAceite(supabase, cfg))) {
+        pararComRecado(
+          cfg.app,
+          "a chave pública desta aplicação foi recusada pelo servidor — " +
+            "o pacote publicado precisa de ser reconstruído com a chave em vigor"
+        );
+        return false;
+      }
       irAoShaar(cfg, cfg.app, "sessao_nao_colou");
     }
     return false;
