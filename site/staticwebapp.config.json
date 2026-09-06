@@ -3,6 +3,14 @@
   "trailingSlash": "auto",
   "routes": [
     {
+      "route": "/shaar-guard.js",
+      "headers": {
+        "access-control-allow-origin": "*",
+        "cache-control": "public, max-age=300",
+        "content-type": "text/javascript; charset=utf-8"
+      }
+    },
+    {
       "route": "/config.json",
       "headers": {
         "cache-control": "no-cache, no-store, must-revalidate"

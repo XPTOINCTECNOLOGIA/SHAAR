@@ -1591,11 +1591,43 @@
   }
 
   // abrir de verdade a aplicacao escolhida
-  function abrirApp(key){
+  // Pede um bilhete ao emissor e leva a pessoa com ele. O bilhete vai no
+  // FRAGMENTO da URL, nunca na query: fragmento nao entra em log de servidor
+  // nem viaja no cabecalho Referer.
+  //
+  // Enquanto as aplicacoes estao em modo de observacao, uma falha aqui nao
+  // pode impedir a entrada — por isso o bilhete e um acrescimo, e a navegacao
+  // acontece de qualquer maneira.
+  async function pedirBilhete(key){
+    const sessao = lerSessao();
+    if (!CONFIGURADO || !sessao || !sessao.token) return null;
+    try {
+      const r = await fetch(`${CFG.url}/functions/v1/shaar-bilhete`, {
+        method: "POST",
+        headers: {
+          "apikey": CFG.anonKey,
+          "Authorization": `Bearer ${sessao.token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ app: key }),
+      });
+      if (!r.ok) return null;
+      const d = await r.json();
+      return d && d.bilhete ? d : null;
+    } catch (e) { return null; }
+  }
+
+  async function abrirApp(key){
     const url = (APPS[key] || {}).url;
-    if (url){ window.location.href = url; return true; }
-    toast(`${appName(key)} ainda não tem endereço cadastrado no catálogo.`);
-    return false;
+    if (!url){
+      toast(`${appName(key)} ainda não tem endereço cadastrado no catálogo.`);
+      return false;
+    }
+    const b = await pedirBilhete(key);
+    window.location.href = b
+      ? `${b.url || url}#bilhete=${encodeURIComponent(b.bilhete)}`
+      : url;
+    return true;
   }
 
   let toastTimer = null;
