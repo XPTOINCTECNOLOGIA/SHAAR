@@ -140,10 +140,23 @@ jobs:
                      and pg_get_functiondef(f.oid) ~ 'jireh_has_permission'
                 ) src
                 cross join lateral regexp_matches(
-                  src.txt, 'jireh_has_permission\(''([a-zA-Z0-9_.]+)''', 'g') as m
+                  src.txt, 'jireh_has_permission\([ (]*''([a-zA-Z0-9_.]+)''', 'g') as m
                 left join public.shaar_permission sp on sp.code = m[1]
                group by 1
             ) t;
+          select 'CHAMADAS_DIRECTAS|' || coalesce(
+                   string_agg(distinct replace(substring(m[1] from 1 for 48), '|', '!'), ' / '),
+                   'nenhuma')
+            from (
+              select coalesce(pg_get_expr(p.polqual, p.polrelid), '')
+                  || coalesce(pg_get_expr(p.polwithcheck, p.polrelid), '') as txt
+                from pg_policy p
+                join pg_class c on c.oid = p.polrelid
+                join pg_namespace n on n.oid = c.relnamespace
+               where n.nspname = 'public'
+            ) src
+            cross join lateral regexp_matches(
+              src.txt, 'jireh_has_permission(.{0,48})', 'g') as m;
           select 'IDENTIDADE_SO_POR_EMAIL|' || count(*)
             from public.users u
            where u.active and not u.blocked and u.auth_user_id is null
