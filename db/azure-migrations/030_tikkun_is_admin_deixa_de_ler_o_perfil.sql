@@ -68,10 +68,15 @@ $mig$;
 -- ---------------------------------------------------------------------
 -- 2. O CATALOGO
 -- ---------------------------------------------------------------------
+-- O codigo e `administracao.gerir` e nao `administrar` porque a tabela tem uma
+-- restricao de forma — `^[a-z][a-z0-9_-]*([.:][a-z][a-z0-9_-]*)+$` — que exige
+-- pelo menos um separador. A primeira versao deste ficheiro rebentou por isso.
+-- E uma boa restricao: mantem o catalogo legivel e fecha a porta a texto livre
+-- vindo do cliente.
 insert into public.shaar_permission
   (app_code, code, name, description, grupo, sort_order, origem)
 values
- ('TIKKUN', 'administrar', 'Administrar o TIKKUN',
+ ('TIKKUN', 'administracao.gerir', 'Administrar o TIKKUN',
   'Ler e alterar os papeis do TIKKUN (tikkun_user_roles) e os paineis de '
   'qualquer pessoa. Corresponde exactamente ao que tikkun_is_admin() decidia — '
   'que ate aqui era o nivel do PERFIL (level >= 90), e portanto perfil como '
@@ -106,7 +111,7 @@ begin
     if coalesce(public.tikkun_is_admin_legado(), false) then
       insert into public.shaar_permission_grant
         (user_id, app_code, code, efeito, escopo, motivo, granted_by, granted_at)
-      values (r.id, 'TIKKUN', 'administrar', 'permitir', '{}'::jsonb,
+      values (r.id, 'TIKKUN', 'administracao.gerir', 'permitir', '{}'::jsonb,
               'migracao do modelo anterior — tikkun_is_admin() respondia '
               'verdadeiro para esta pessoa (papel administrador ou perfil de '
               'nivel >= 90). A partir daqui a resposta e da Central.',
@@ -122,12 +127,12 @@ begin
 
   if v_n = 0 then
     raise exception
-      'ninguem recebeu TIKKUN/administrar. Ou tikkun_is_admin_legado nao '
+      'ninguem recebeu TIKKUN/administracao.gerir. Ou tikkun_is_admin_legado nao '
       'responde por este caminho, ou nao ha administradores — e a primeira '
       'hipotese e demasiado provavel para se assumir a segunda. Se ninguem '
       'fosse mesmo admin, este ficheiro estaria a trancar tres politicas.';
   end if;
-  raise notice 'TIKKUN/administrar: % pessoas (% sem portao do TIKKUN)', v_n, v_sem_port;
+  raise notice 'TIKKUN/administracao.gerir: % pessoas (% sem portao do TIKKUN)', v_n, v_sem_port;
 end
 $mig$;
 
@@ -143,7 +148,7 @@ returns boolean
 language sql stable security definer
 set search_path to 'public'
 as $function$
-  select public.shaar_pode('TIKKUN', 'administrar');
+  select public.shaar_pode('TIKKUN', 'administracao.gerir');
 $function$;
 
 
@@ -187,10 +192,10 @@ begin
       'o "ninguem perde" abaixo nao valeria nada.';
   end if;
   if v_perde > 0 then
-    raise exception '% pessoa(s) com portao do TIKKUN perdem administrar. Nada disto entra.', v_perde;
+    raise exception '% pessoa(s) com portao do TIKKUN perdem administracao.gerir. Nada disto entra.', v_perde;
   end if;
   if v_ganha > 0 then
-    raise exception '% pessoa(s) GANHAM administrar sem ninguem ter decidido. Nada disto entra.', v_ganha;
+    raise exception '% pessoa(s) GANHAM administracao.gerir sem ninguem ter decidido. Nada disto entra.', v_ganha;
   end if;
 
   raise notice 'tikkun_is_admin trocado: controlo %, ninguem perde, ninguem ganha', v_ctl;
@@ -207,7 +212,7 @@ select 'catalogo do TIKKUN: ' || string_agg(code, ', ' order by code)
 select 'quem administra o TIKKUN: ' || coalesce(string_agg(u.email::text, ', ' order by u.email), 'ninguem')
   from public.shaar_permission_grant g
   join public.users u on u.id = g.user_id
- where g.app_code = 'TIKKUN' and g.code = 'administrar' and g.efeito = 'permitir';
+ where g.app_code = 'TIKKUN' and g.code = 'administracao.gerir' and g.efeito = 'permitir';
 
 -- As tres politicas continuam a existir e a chamar o mesmo nome.
 select 'politicas que chamam tikkun_is_admin: ' || count(*)::text
