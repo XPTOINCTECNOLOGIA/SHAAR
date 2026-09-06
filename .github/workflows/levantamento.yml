@@ -120,34 +120,6 @@ jobs:
            order by 5 desc, 1;
 
           \echo
-          \echo === TABELAS ===
-          select c.relname                                     as tabela,
-                 c.relrowsecurity                              as rls,
-                 (select count(*) from pg_policy p where p.polrelid = c.oid) as politicas,
-                 coalesce((select s.n_live_tup from pg_stat_user_tables s
-                            where s.relid = c.oid), 0)         as linhas
-            from pg_class c join pg_namespace n on n.oid = c.relnamespace
-           where n.nspname = 'public' and c.relkind = 'r'
-             and :'tab' <> '' and c.relname like :'tab'
-           order by 1;
-
-          \echo
-          \echo === POLITICAS EXISTENTES ===
-          select c.relname                                    as tabela,
-                 p.polname                                    as politica,
-                 case p.polcmd when 'r' then 'select' when 'a' then 'insert'
-                               when 'w' then 'update' when 'd' then 'delete'
-                               else 'all' end                 as comando,
-                 case when p.polpermissive then 'permissiva' else 'RESTRITIVA' end as tipo,
-                 left(coalesce(pg_get_expr(p.polqual, p.polrelid), '-'), 90) as usando
-            from pg_policy p
-            join pg_class c on c.oid = p.polrelid
-            join pg_namespace n on n.oid = c.relnamespace
-           where n.nspname = 'public'
-             and :'tab' <> '' and c.relname like :'tab'
-           order by 1, 2;
-
-          \echo
           \echo === QUEM JA DECIDE POR PERMISSAO ===
           \echo Politicas RLS que ja chamam uma funcao de permissao. Estas nao se
           \echo inventam de novo: aponta-se a que existe para a Central.
@@ -243,6 +215,38 @@ jobs:
             join public.positions pos on pos.id = u.position_id and pos.active
             left join public.profiles pf on pf.id = u.profile_id
            where u.active and not u.blocked and upper(pos.name) = 'CFO';
+          \echo
+          \echo Estas duas vao perto do fim porque dependem do que foi PEDIDO.
+          \echo A saida do az e cortada pelo inicio quando e longa, portanto o que
+          \echo se pediu tem de sobreviver ao corte; o contexto fixo e que pode faltar.
+
+          \echo
+          \echo === TABELAS ===
+          select c.relname                                     as tabela,
+                 c.relrowsecurity                              as rls,
+                 (select count(*) from pg_policy p where p.polrelid = c.oid) as politicas,
+                 coalesce((select s.n_live_tup from pg_stat_user_tables s
+                            where s.relid = c.oid), 0)         as linhas
+            from pg_class c join pg_namespace n on n.oid = c.relnamespace
+           where n.nspname = 'public' and c.relkind = 'r'
+             and :'tab' <> '' and c.relname like :'tab'
+           order by 1;
+
+          \echo
+          \echo === POLITICAS EXISTENTES ===
+          select c.relname                                    as tabela,
+                 p.polname                                    as politica,
+                 case p.polcmd when 'r' then 'select' when 'a' then 'insert'
+                               when 'w' then 'update' when 'd' then 'delete'
+                               else 'all' end                 as comando,
+                 case when p.polpermissive then 'permissiva' else 'RESTRITIVA' end as tipo,
+                 left(coalesce(pg_get_expr(p.polqual, p.polrelid), '-'), 90) as usando
+            from pg_policy p
+            join pg_class c on c.oid = p.polrelid
+            join pg_namespace n on n.oid = c.relnamespace
+           where n.nspname = 'public'
+             and :'tab' <> '' and c.relname like :'tab'
+           order by 1, 2;
           \echo
           \echo === CORPO DE UMA FUNCAO ===
           \echo Em ultimo lugar de proposito: a saida do az e cortada pelo inicio
