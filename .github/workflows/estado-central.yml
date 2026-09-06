@@ -183,9 +183,20 @@ jobs:
           -- ele a permissao que tiver). Nao poe o job vermelho: um acto passado
           -- nao se desfaz, e um alarme permanentemente vermelho ensina a ignorar
           -- alarmes. E materia da recertificacao, com nome e processo a frente.
+          -- Um numero de actos sem dizer quantos estao explicados le-se como uma
+          -- lista de achados. O que interessa e o que ficou POR explicar; o
+          -- resto e memoria com a decisao escrita ao lado.
+          select 'SEGREGACAO_POR_EXPLICAR|' || coalesce(
+                   nullif((select string_agg(app_code || '/' || regra || ': ' || por_explicar
+                                             || ' de ' || ocorrencias || ' actos', '; ')
+                             from public.shaar_segregacao_resumo()
+                            where por_explicar > 0), ''),
+                   'nenhum — todos os ' ||
+                   (select coalesce(sum(ocorrencias), 0)::text from public.shaar_segregacao_resumo())
+                   || ' actos tem regra declarada');
           select 'SEGREGACAO_NO_RASTO|' || coalesce(
                    (select string_agg(app_code || '/' || regra || ': ' || ocorrencias
-                                      || ' acto(s), ' || pessoas || ' pessoa(s)', '; ')
+                                      || ' acto(s), ' || esperados || ' esperado(s)', '; ')
                       from public.shaar_segregacao_resumo()), 'nenhum acto');
           select 'HISTORICO|' || count(*) || ' eventos' from public.shaar_permission_event;
           select 'APLICACOES_A_OBEDECER|' || coalesce(string_agg(distinct a, ', '), 'nenhuma')
