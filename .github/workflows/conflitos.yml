@@ -1,30 +1,23 @@
-name: Conflitos de segregação de funções
+name: Segregação de funções
 
 # Leitura, e só leitura. Não altera uma linha.
 #
-# O relatório nocturno diz "REVISOES_ABERTAS|81 (conflito: 76…)" e mais nada.
-# 76 é um número que não se decide: não diz quem, não diz que par, e sobretudo
-# não diz se o conflito ainda existe. A revisão é aberta no momento em que a
-# concessão é escrita e fica aberta para sempre até alguém a fechar — se a
-# permissão foi revogada entretanto, a revisão continua lá a apontar para um
-# conflito que já não existe.
+# Este workflow começou por medir a coisa errada. Media DETENÇÃO — quem tem os
+# dois lados de um par de permissões — e chamava-lhe conflito. Segregação de
+# funções é sobre ACTOS: o mesmo par de mãos nos dois passos do mesmo processo.
+# São coisas diferentes, e a diferença não é subtil: o JIREH recusa, no código,
+# que o requerente aprove o próprio reembolso (`requester_id <> actor_id`),
+# tenha ele a permissão que tiver. A regra de negócio supera a permissão.
 #
-# Por isso este workflow responde a duas perguntas separadas, e a ordem
-# importa:
+# Por isso a ordem aqui é: primeiro o RASTO, que são factos — a aplicação
+# guardou quem assinou cada passo — e só depois quem PODE fazer os dois, que é
+# uma pergunta sobre o futuro e não uma acusação sobre o passado.
 #
-#   HOJE — que pessoas acumulam, NESTE momento, os dois lados de um par
-#          declarado. Calculado das próprias concessões válidas, não das
-#          revisões. É esta a lista que se decide.
+# Fica também a fila de revisão, para se ver quanto do trabalho administrativo
+# é eco: várias revisões da mesma pessoa e do mesmo par contam uma vez só.
 #
-#   REVISÕES — quantos papéis estão abertos na fila, por par. Serve para saber
-#          quanto trabalho administrativo há e quanto dele é eco: várias
-#          revisões da mesma pessoa e do mesmo par contam uma vez em HOJE.
-#
-# O portão não entra nesta conta de propósito. A permissão é da pessoa e fica
-# registada mesmo com o portão fechado; quem acumula um par acumula-o na mesma
-# no dia em que o portão abrir. Mas a coluna PORTÃO diz-se, porque muda a
-# urgência: um conflito de quem entra hoje é diferente de um conflito de quem
-# não entra.
+# O `az vm run-command` corta a saída PELO PRINCÍPIO. O que importa imprime-se
+# no fim — não é estilo, é a única posição segura.
 
 on:
   workflow_dispatch:
@@ -36,7 +29,7 @@ concurrency:
 jobs:
   conflitos:
     runs-on: ubuntu-latest
-    name: Ler os conflitos de segregação
+    name: Ler a segregação de funções
     steps:
       - name: Login no Azure
         uses: azure/login@v2
@@ -152,6 +145,19 @@ jobs:
             join public.users u on u.id = a.user_id and u.active
            group by u.email, u.full_name
            order by count(*) desc, u.email;
+
+          -- O RASTO. Factos, nao avisos: a aplicacao guardou quem assinou cada
+          -- passo. Ultimo de proposito — e o que nao pode faltar se a saida
+          -- vier cortada.
+          select 'RASTO|' || app_code || '|' || regra
+                 || '|' || ocorrencias::text
+                 || '|' || pessoas::text
+                 || '|' || quem
+                 || '|' || coalesce(to_char(mais_recente, 'YYYY-MM-DD'), '-')
+            from public.shaar_segregacao_resumo();
+
+          select 'RASTO_TOTAL|' || coalesce(sum(ocorrencias), 0)::text
+            from public.shaar_segregacao_resumo();
           FIMSQL
 
           B64=$(base64 -w0 consulta.sql)
@@ -188,7 +194,7 @@ jobs:
           # corte; e se o marcador faltar, isso diz-se em vez de se fingir que a
           # lista esta completa.
           SAIDA=$(printf '%s\n' "$SAIDA_AZ" \
-                  | grep -E '^(REGRA|POR_PAR|REVISAO_POR_PAR|TOTAL|REVISAO_SEM_CONFLITO|PESSOA)\|' || true)
+                  | grep -E '^(REGRA|POR_PAR|REVISAO_POR_PAR|TOTAL|REVISAO_SEM_CONFLITO|PESSOA|RASTO|RASTO_TOTAL)\|' || true)
 
           if ! printf '%s\n' "$SAIDA_AZ" | grep -q '===INICIO==='; then
             echo "::warning::A saida da VM veio cortada no inicio (limite do az vm run-command): faltam linhas, e as que faltam sao as primeiras."
@@ -203,9 +209,18 @@ jobs:
           printf '%s\n' "$SAIDA"
 
           {
-            echo "## Conflitos de segregação de funções"
+            echo "## Segregação de funções"
             echo ""
-            echo "### Quem acumula pares HOJE"
+            echo "### No rasto — actos, não avisos"
+            echo ""
+            echo "| Aplicação | Regra | Actos | Pessoas | Quem | Mais recente |"
+            echo "|---|---|---|---|---|---|"
+            printf '%s\n' "$SAIDA" | awk -F'|' '$1=="RASTO"{printf "| %s | %s | %s | %s | %s | %s |\n",$2,$3,$4,$5,$6,$7}'
+            printf '%s\n' "$SAIDA" | awk -F'|' '$1=="RASTO_TOTAL" && $2=="0"{print "\n_Nenhum acto encontrado: em nenhum processo a mesma pessoa assinou os dois passos._"}'
+            echo ""
+            echo "### Quem PODE fazer os dois passos"
+            echo ""
+            echo "Detenção, não acto. Diz o que pode vir a acontecer, não o que aconteceu."
             echo ""
             echo "| Pessoa | E-mail | Pares | Quais |"
             echo "|---|---|---|---|"
@@ -223,7 +238,7 @@ jobs:
             echo "|---|---|---|"
             printf '%s\n' "$SAIDA" | awk -F'|' '$1=="REVISAO_POR_PAR"{printf "| %s | %s | %s |\n",$2,$3,$4}'
             echo ""
-            echo "### A regra"
+            echo "### A regra declarada"
             echo ""
             echo "| Par | Severidade | Motivo |"
             echo "|---|---|---|"

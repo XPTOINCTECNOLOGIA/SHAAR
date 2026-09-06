@@ -144,6 +144,17 @@ jobs:
                                                 from public.shaar_permission_revisao
                                                where resolvido_em is null
                                                group by gatilho) x), '-') || ')';
+          -- Segregacao de funcoes medida em ACTOS, no rasto das aplicacoes, e nao
+          -- na deteccao de permissoes: ter dois codigos nao e ter feito os dois
+          -- passos, e a regra de negocio da aplicacao pode superar a permissao
+          -- (o JIREH recusa que o requerente aprove o proprio reembolso, tenha
+          -- ele a permissao que tiver). Nao poe o job vermelho: um acto passado
+          -- nao se desfaz, e um alarme permanentemente vermelho ensina a ignorar
+          -- alarmes. E materia da recertificacao, com nome e processo a frente.
+          select 'SEGREGACAO_NO_RASTO|' || coalesce(
+                   (select string_agg(app_code || '/' || regra || ': ' || ocorrencias
+                                      || ' acto(s), ' || pessoas || ' pessoa(s)', '; ')
+                      from public.shaar_segregacao_resumo()), 'nenhum acto');
           select 'HISTORICO|' || count(*) || ' eventos' from public.shaar_permission_event;
           select 'APLICACOES_A_OBEDECER|' || coalesce(string_agg(distinct a, ', '), 'nenhuma')
             from (
