@@ -120,6 +120,36 @@ jobs:
            where n.nspname = 'public'
              and :'tab' <> '' and c.relname like :'tab'
            order by 1, 2;
+
+          \echo
+          \echo === QUEM JA DECIDE POR PERMISSAO ===
+          \echo Politicas RLS que ja chamam uma funcao de permissao. Estas nao se
+          \echo inventam de novo: aponta-se a que existe para a Central.
+          select c.relname                                   as tabela,
+                 p.polname                                   as politica,
+                 case p.polcmd when 'r' then 'select' when 'a' then 'insert'
+                               when 'w' then 'update' when 'd' then 'delete'
+                               else 'all' end                as comando,
+                 left(coalesce(pg_get_expr(p.polqual, p.polrelid),
+                               pg_get_expr(p.polwithcheck, p.polrelid), '-'), 80) as usando
+            from pg_policy p
+            join pg_class c on c.oid = p.polrelid
+            join pg_namespace n on n.oid = c.relnamespace
+           where n.nspname = 'public'
+             and (coalesce(pg_get_expr(p.polqual, p.polrelid), '') ~ 'has_permission|shaar_pode'
+               or coalesce(pg_get_expr(p.polwithcheck, p.polrelid), '') ~ 'has_permission|shaar_pode')
+           order by 1, 2;
+
+          \echo
+          \echo === FUNCOES DE PERMISSAO EXISTENTES ===
+          select p.proname || '(' || pg_get_function_arguments(p.oid) || ') -> '
+                 || pg_get_function_result(p.oid) as funcao,
+                 p.prosecdef                      as security_definer,
+                 p.provolatile                    as volatilidade
+            from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+           where n.nspname = 'public'
+             and p.proname in ('has_permission','shaar_pode','shaar_porque')
+           order by 1;
           FIMSQL
 
           B64=$(base64 -w0 consulta.sql)
