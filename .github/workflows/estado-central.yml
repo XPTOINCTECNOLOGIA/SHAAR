@@ -80,9 +80,13 @@ jobs:
           select 'A_EXPIRAR_EM_7_DIAS|' || count(*) from public.shaar_permission_grant
             where valido_ate is not null
               and valido_ate between now() and now() + interval '7 days';
-          select 'REVISOES_ABERTAS|' || count(*) || ' (' ||
-                 coalesce(string_agg(distinct gatilho, ', '), '-') || ')'
-            from public.shaar_permission_revisao where resolvido_em is null;
+          select 'REVISOES_ABERTAS|' || (select count(*) from public.shaar_permission_revisao
+                                             where resolvido_em is null)
+                 || ' (' || coalesce((select string_agg(g || ': ' || n, ', ' order by n desc)
+                                        from (select gatilho as g, count(*)::text as n
+                                                from public.shaar_permission_revisao
+                                               where resolvido_em is null
+                                               group by gatilho) x), '-') || ')';
           select 'HISTORICO|' || count(*) || ' eventos' from public.shaar_permission_event;
           select 'APLICACOES_A_OBEDECER|' || coalesce(string_agg(distinct a, ', '), 'nenhuma')
             from (
@@ -100,6 +104,22 @@ jobs:
                          to_regprocedure('public.has_permission(character varying)')), ''),
                        'shaar_pode\(''([A-Z]+)''', 'g') as m
             ) t;
+          select 'CODIGOS_ANTIGOS_FORA_DO_CATALOGO|' || count(distinct p.code)
+            from public.permissions p
+           where not exists (select 1 from public.shaar_permission sp where sp.code = p.code);
+          select 'DECISAO_FORA_DA_CENTRAL|' || count(*)
+            from pg_policy p
+            join pg_class c on c.oid = p.polrelid
+            join pg_namespace n on n.oid = c.relnamespace
+           where n.nspname = 'public'
+             and (coalesce(pg_get_expr(p.polqual, p.polrelid), '')
+               || coalesce(pg_get_expr(p.polwithcheck, p.polrelid), '')) ~ 'jireh_has_permission';
+          select 'FUNCOES_FORA_DA_CENTRAL|' ||
+                 coalesce(string_agg(p.proname, ', ' order by p.proname), 'nenhuma')
+            from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+           where n.nspname = 'public' and p.prokind = 'f'
+             and p.proname not in ('has_permission', 'jireh_has_permission')
+             and pg_get_functiondef(p.oid) ~ 'jireh_has_permission';
           select 'IDENTIDADE_SO_POR_EMAIL|' || count(*)
             from public.users u
            where u.active and not u.blocked and u.auth_user_id is null
