@@ -77,6 +77,20 @@ jobs:
                  || ' / ganha com revisao ' || (r.ganharia - r.ganha_sem_revisao)
                  || ' / pares ' || r.pares_avaliados
             from public.shaar_divergencia_real_resumo('TETELESTAI') r;
+          -- O BNEI e o TIKKUN tem funcoes proprias, e o TIKKUN nem sequer aparece
+          -- na comparacao modelada — o modelo dele e uma funcao que depende de
+          -- quem pergunta, e isso nao se escreve numa vista. Sem estas duas
+          -- linhas o TIKKUN ficava sem verificacao nenhuma.
+          select 'REAL_BNEI|controlo ' || r.controlo_positivos
+                 || ' / perde ' || r.perdia
+                 || ' / ganha sem revisao ' || r.ganha_sem_revisao
+                 || ' / pares ' || r.pares_avaliados
+            from public.shaar_divergencia_real_resumo('BNEI', 'bnei_has_permission_legado') r;
+          select 'REAL_TIKKUN|controlo ' || r.controlo_positivos
+                 || ' / perde ' || r.perdia
+                 || ' / ganha sem revisao ' || r.ganha_sem_revisao
+                 || ' / pares ' || r.pares_avaliados
+            from public.shaar_divergencia_real_resumo('TIKKUN', 'tikkun_capacidade_legada') r;
           -- A permissao e da pessoa; o portao diz se ela entra hoje. Se um
           -- direito do modelo antigo nao estiver guardado, abrir o portao a
           -- essa pessoa amanha nao lhe daria nada — e esse e o unico sentido
@@ -296,6 +310,24 @@ jobs:
           R_CTL=$(printf '%s\n' "$REAL" | awk '{print $2}')
           R_PER=$(printf '%s\n' "$REAL" | awk '{print $5}')
           R_GSR=$(printf '%s\n' "$REAL" | awk '{print $10}')
+          for APLIC in BNEI TIKKUN; do
+            L=$(printf '%s\n' "$SAIDA" | awk -F'|' -v a="^REAL_${APLIC}\\|" '$0 ~ a {print $2}')
+            C=$(printf '%s\n' "$L" | awk '{print $2}')
+            P=$(printf '%s\n' "$L" | awk '{print $5}')
+            G=$(printf '%s\n' "$L" | awk '{print $10}')
+            if [ "${C:-0}" = "0" ]; then
+              echo "::error::O controlo da impersonacao do ${APLIC} deu zero: a medicao nao esta a funcionar e os numeros dela nao valem nada."
+              FALHOU=1
+            fi
+            if [ "${P:-x}" != "0" ]; then
+              echo "::error::${P} respostas em que alguem COM portao perde acesso no ${APLIC}."
+              FALHOU=1
+            fi
+            if [ "${G:-x}" != "0" ]; then
+              echo "::error::${G} respostas de acesso novo no ${APLIC} a gente sem revisao aberta."
+              FALHOU=1
+            fi
+          done
           AMB=$(printf '%s\n' "$SAIDA" | awk -F'|' '/^IDENTIDADE_AMBIGUA\|/{print $2}' | tr -d '[:space:]')
           VAZ=$(printf '%s\n' "$SAIDA" | awk -F'|' '/^IDENTIDADE_EMAIL_VAZIO\|/{print $2}' | tr -d '[:space:]')
           TA=$(printf '%s\n' "$SAIDA" | awk -F'|' '/^TESTES_AUTORIZACAO\|/{print $2}')
