@@ -1,0 +1,133 @@
+name: Estado da Central de Permissionamento
+
+# Verificação só de LEITURA do estado da autorização. Não altera nada.
+#
+# Existe por uma razão prática: o acesso de linha de comando à VM da base é
+# restrito, e sem ele não há como saber se a Central continua a dizer o mesmo
+# que as aplicações decidem. Este workflow põe essa observação num canal
+# auditável — corre com as credenciais do repositório, deixa registo em cada
+# execução, e qualquer pessoa da equipa pode lê-lo sem ter acesso à máquina.
+#
+# O número que importa é a DIVERGÊNCIA. Enquanto for zero, a Central sabe
+# responder exactamente o que cada aplicação já decide, e trocar a autoridade
+# de mais uma aplicação não muda nada para quem trabalha. Se subir acima de
+# zero, alguém mexeu num modelo antigo e as duas realidades começaram a
+# afastar-se: é aí que se pára, e não depois. Por isso o job fica VERMELHO —
+# um relatório que ninguém lê não protege nada; um job vermelho lê-se.
+#
+# O SQL vai em base64, como no pipeline de migrations. Não é preciosismo: o
+# SQL precisa de plicas para os literais, o script remoto precisa de plicas
+# para não expandir nada, e aspas duplas em PostgreSQL nomeiam colunas em vez
+# de fazerem texto. Codificar resolve as três coisas de uma vez.
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 02:15 UTC = 23:15 em Brasília, quinze minutos depois da sincronização do
+    # directório e do ciclo de vida. Mede o estado já com o dia fechado.
+    - cron: '15 2 * * *'
+
+concurrency:
+  group: estado-central
+  cancel-in-progress: false
+
+jobs:
+  estado:
+    runs-on: ubuntu-latest
+    name: Ler o estado da Central
+    steps:
+      - name: Login no Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Consultar a base
+        env:
+          RG: rg-xpto-plataforma
+          VM: vm-supabase
+        run: |
+          set -euo pipefail
+
+          cat > consulta.sql <<'FIMSQL'
+          select 'DIVERGENCIA|' || count(*) from public.shaar_permissao_divergencias;
+          select 'TESTES_AUTORIZACAO|' || count(*) filter (where passou) || '/' || count(*)
+            from public.shaar_correr_testes();
+          select 'TESTES_ESCOPO|' || count(*) filter (where passou) || '/' || count(*)
+            from public.shaar_correr_testes_escopo();
+          select 'CATALOGO|' || count(*) || ' permissoes em ' || count(distinct app_code) || ' aplicacoes'
+            from public.shaar_permission;
+          select 'CONCESSOES|' || count(*) || ' para ' || count(distinct user_id) || ' pessoas'
+            from public.shaar_permission_grant;
+          select 'COM_ESCOPO|' || count(*) from public.shaar_permission_grant
+            where escopo <> '{}'::jsonb;
+          select 'NEGACOES_EXPLICITAS|' || count(*) from public.shaar_permission_grant
+            where efeito = 'negar';
+          select 'A_EXPIRAR_EM_7_DIAS|' || count(*) from public.shaar_permission_grant
+            where valido_ate is not null
+              and valido_ate between now() and now() + interval '7 days';
+          select 'REVISOES_ABERTAS|' || count(*) || ' (' ||
+                 coalesce(string_agg(distinct gatilho, ', '), '-') || ')'
+            from public.shaar_permission_revisao where resolvido_em is null;
+          select 'HISTORICO|' || count(*) || ' eventos' from public.shaar_permission_event;
+          select 'APLICACOES_A_OBEDECER|' ||
+                 coalesce(string_agg(distinct upper(split_part(c.relname, '_', 1)), ', '), 'nenhuma')
+            from pg_policy p
+            join pg_class c on c.oid = p.polrelid
+            join pg_namespace n on n.oid = c.relnamespace
+           where n.nspname = 'public'
+             and p.polname like '%\_perm\_%'
+             and not p.polpermissive;
+          select 'HISTORICO_IMUTAVEL|' || case
+                   when has_table_privilege('authenticated','public.shaar_permission_event','UPDATE')
+                     or has_table_privilege('authenticated','public.shaar_permission_event','DELETE')
+                   then 'FALHA - historico editavel' else 'sim' end;
+          FIMSQL
+
+          B64=$(base64 -w0 consulta.sql)
+          REMOTE="set -e
+          PGPW=\$(grep '^POSTGRES_PASSWORD=' /opt/supa/.env | cut -d= -f2-)
+          echo '$B64' | base64 -d > /tmp/estado-central.sql
+          echo '===INICIO==='
+          docker exec -i -e PGPASSWORD=\"\$PGPW\" supabase-db psql -U postgres -h 127.0.0.1 -qtA -f - < /tmp/estado-central.sql
+          echo '===FIM==='
+          rm -f /tmp/estado-central.sql"
+
+          BRUTO=$(az vm run-command invoke -g "$RG" -n "$VM" --command-id RunShellScript \
+            --scripts "$REMOTE" --query "value[0].message" -o tsv)
+          SAIDA=$(printf '%s\n' "$BRUTO" | awk '/===INICIO===/{f=1;next} /===FIM===/{f=0} f' | grep '|' || true)
+
+          if [ -z "$SAIDA" ]; then
+            echo "::error::Nao consegui ler o estado da base. Saida em bruto:"
+            printf '%s\n' "$BRUTO"
+            exit 1
+          fi
+
+          printf '%s\n' "$SAIDA"
+
+          {
+            echo "## Estado da Central de Permissionamento"
+            echo ""
+            echo "| Indicador | Valor |"
+            echo "|---|---|"
+            printf '%s\n' "$SAIDA" | while IFS='|' read -r k v; do
+              printf '| %s | %s |\n' "$k" "$v"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          DIV=$(printf '%s\n' "$SAIDA" | awk -F'|' '/^DIVERGENCIA\|/{print $2}' | tr -d '[:space:]')
+          TA=$(printf '%s\n' "$SAIDA" | awk -F'|' '/^TESTES_AUTORIZACAO\|/{print $2}')
+          TE=$(printf '%s\n' "$SAIDA" | awk -F'|' '/^TESTES_ESCOPO\|/{print $2}')
+
+          FALHOU=0
+          if [ "${DIV:-x}" != "0" ]; then
+            echo "::error::Divergencia ${DIV} entre a Central e os modelos antigos. Nao trocar a autoridade de mais nenhuma aplicacao ate voltar a zero, e descobrir quem mexeu no modelo antigo."
+            FALHOU=1
+          fi
+          for T in "$TA" "$TE"; do
+            case "$T" in
+              *"/"*) [ "${T%%/*}" = "${T##*/}" ] || { echo "::error::Testes de autorizacao a falhar: $T"; FALHOU=1; } ;;
+              *) echo "::error::Nao consegui ler os testes: $T"; FALHOU=1 ;;
+            esac
+          done
+          [ "$FALHOU" = "0" ] || exit 1
+          echo "Divergencia zero e testes verdes. O contador dos sete dias continua."
