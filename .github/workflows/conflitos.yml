@@ -172,6 +172,23 @@ jobs:
             from public.shaar_segregacao_no_rasto t
             left join public.users u on u.id = t.user_id
            order by t.quando desc nulls last;
+
+          -- Quem sao, no organograma. Uma excepcao a segregacao so se escreve
+          -- bem se o criterio for uma propriedade da pessoa que a Central sabe
+          -- ler — o cargo — e nao o nome dela.
+          select 'CARGO|' || u.email
+                 || '|' || coalesce(pos.name, '(sem cargo)')
+                 || '|' || coalesce(prof.name, '(sem perfil)')
+                 || '|' || case when u.active then 'activa' else 'inactiva' end
+            from public.users u
+            left join public.positions pos on pos.id = u.position_id
+            left join public.profiles  prof on prof.id = u.profile_id
+           where u.id in (select distinct user_id from public.shaar_segregacao_no_rasto)
+           order by u.email;
+
+          -- E que cargos existem, para o criterio nao ser inventado.
+          select 'CARGOS|' || string_agg(distinct name, ', ' )
+            from public.positions where active;
           FIMSQL
 
           B64=$(base64 -w0 consulta.sql)
@@ -208,7 +225,7 @@ jobs:
           # corte; e se o marcador faltar, isso diz-se em vez de se fingir que a
           # lista esta completa.
           SAIDA=$(printf '%s\n' "$SAIDA_AZ" \
-                  | grep -E '^(REGRA|POR_PAR|REVISAO_POR_PAR|TOTAL|REVISAO_SEM_CONFLITO|PESSOA|RASTO|RASTO_TOTAL|ACTO)\|' || true)
+                  | grep -E '^(REGRA|POR_PAR|REVISAO_POR_PAR|TOTAL|REVISAO_SEM_CONFLITO|PESSOA|RASTO|RASTO_TOTAL|ACTO|CARGO|CARGOS)\|' || true)
 
           if ! printf '%s\n' "$SAIDA_AZ" | grep -q '===INICIO==='; then
             echo "::warning::A saida da VM veio cortada no inicio (limite do az vm run-command): faltam linhas, e as que faltam sao as primeiras."
