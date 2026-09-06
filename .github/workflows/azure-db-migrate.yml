@@ -35,10 +35,33 @@ jobs:
           if ! ls "$DIR"/*.sql >/dev/null 2>&1; then
             echo "Sem migrations em $DIR — nada a fazer."; exit 0
           fi
+          # A extensao RunCommand da VM continua ocupada durante algum tempo
+          # depois de o comando anterior ja ter devolvido a saida, e nesse
+          # intervalo o Azure responde Conflict. Aqui isso e pior do que num
+          # relatorio: um Conflict a meio parece uma migracao falhada, e nao e
+          # — a migracao nem chegou a correr. Esperar e a resposta certa.
+          esperar_a_vm() {   # $1 = script remoto; deixa a saida em SAIDA_AZ
+            local t erro
+            for t in 1 2 3 4 5 6; do
+              erro=$(mktemp)
+              if SAIDA_AZ=$(az vm run-command invoke -g "$RG" -n "$VM" \
+                              --command-id RunShellScript --scripts "$1" \
+                              --query "value[0].message" -o tsv 2>"$erro"); then
+                rm -f "$erro"; return 0
+              fi
+              if grep -qi "in progress" "$erro"; then
+                echo "  a VM esta ocupada; espero $((t * 10))s (tentativa $t de 6)"
+                rm -f "$erro"; sleep $((t * 10)); continue
+              fi
+              echo "::error::az vm run-command falhou:"; cat "$erro"; rm -f "$erro"; return 1
+            done
+            echo "::error::A VM ficou ocupada seis tentativas seguidas."; return 1
+          }
+
           echo "Repositorio: $REPO"
-          APPLIED=$(az vm run-command invoke -g "$RG" -n "$VM" --command-id RunShellScript \
-            --scripts "PGPW=\$(grep '^POSTGRES_PASSWORD=' /opt/supa/.env | cut -d= -f2-); echo '===A==='; docker exec -e PGPASSWORD=\"\$PGPW\" supabase-db psql -U postgres -h 127.0.0.1 -tAc \"select filename from public._xpto_migrations where repo='$REPO'\"; echo '===B==='" \
-            --query "value[0].message" -o tsv 2>/dev/null | awk '/===A===/{f=1;next} /===B===/{f=0} f' | sed '/^[[:space:]]*$/d' || true)
+          LISTAR="PGPW=\$(grep '^POSTGRES_PASSWORD=' /opt/supa/.env | cut -d= -f2-); echo '===A==='; docker exec -e PGPASSWORD=\"\$PGPW\" supabase-db psql -U postgres -h 127.0.0.1 -tAc \"select filename from public._xpto_migrations where repo='$REPO'\"; echo '===B==='"
+          esperar_a_vm "$LISTAR" || exit 1
+          APPLIED=$(printf '%s\n' "$SAIDA_AZ" | awk '/===A===/{f=1;next} /===B===/{f=0} f' | sed '/^[[:space:]]*$/d' || true)
           echo "Ja aplicadas neste repo: $(printf '%s\n' "$APPLIED" | grep -c . || true)"
           for f in $(ls "$DIR"/*.sql | sort); do
             base=$(basename "$f")
@@ -54,7 +77,8 @@ jobs:
           docker exec -i -e PGPASSWORD=\"\$PGPW\" supabase-db psql -U postgres -h 127.0.0.1 --single-transaction -v ON_ERROR_STOP=1 -q -f - < /tmp/xmig.sql
           docker exec -e PGPASSWORD=\"\$PGPW\" supabase-db psql -U postgres -h 127.0.0.1 -q -c \"insert into public._xpto_migrations(repo,filename,checksum) values('$REPO','$base','$SUM') on conflict do nothing\"
           echo XMIG_OK"
-            OUT=$(az vm run-command invoke -g "$RG" -n "$VM" --command-id RunShellScript --scripts "$REMOTE" --query "value[0].message" -o tsv 2>/dev/null)
+            esperar_a_vm "$REMOTE" || exit 1
+            OUT="$SAIDA_AZ"
             echo "$OUT"
             echo "$OUT" | grep -q XMIG_OK || { echo "FALHOU ao aplicar $base"; exit 1; }
           done

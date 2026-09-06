@@ -272,8 +272,30 @@ jobs:
           echo '===FIM==='
           rm -f /tmp/levantamento.sql"
 
-          BRUTO=$(az vm run-command invoke -g "$RG" -n "$VM" --command-id RunShellScript \
-            --scripts "$REMOTE" --query "value[0].message" -o tsv)
+          # A extensao RunCommand da VM continua ocupada durante algum tempo depois
+          # de o comando anterior ja ter devolvido a saida, e nesse intervalo o
+          # Azure responde Conflict. Nao e erro nosso nem da base: e esperar.
+          # Um relatorio que fica vermelho por isto ensina a ignorar alarmes.
+          esperar_a_vm() {   # $@ = argumentos para --scripts
+            local t erro
+            for t in 1 2 3 4 5 6; do
+              erro=$(mktemp)
+              if SAIDA_AZ=$(az vm run-command invoke -g "$RG" -n "$VM" \
+                              --command-id RunShellScript --scripts "$1" \
+                              --query "value[0].message" -o tsv 2>"$erro"); then
+                rm -f "$erro"; return 0
+              fi
+              if grep -qi "in progress" "$erro"; then
+                echo "A VM esta ocupada com outro run-command; espero $((t * 10))s (tentativa $t de 6)"
+                rm -f "$erro"; sleep $((t * 10)); continue
+              fi
+              echo "::error::az vm run-command falhou:"; cat "$erro"; rm -f "$erro"; return 1
+            done
+            echo "::error::A VM ficou ocupada seis tentativas seguidas."; return 1
+          }
+
+          esperar_a_vm "$REMOTE" || exit 1
+          BRUTO="$SAIDA_AZ"
 
           # Nao filtrar por marcadores. A saida do `az vm run-command` vem
           # truncada no INICIO quando e longa — foi o que aconteceu na primeira
