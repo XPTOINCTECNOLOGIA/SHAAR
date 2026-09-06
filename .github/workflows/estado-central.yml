@@ -110,12 +110,9 @@ jobs:
                  and p.polname like '%\_perm\_%'
                  and not p.polpermissive
               union
-              select m[1]
-                from pg_proc f join pg_namespace nf on nf.oid = f.pronamespace
-                cross join lateral regexp_matches(pg_get_functiondef(f.oid),
-                       'shaar_pode\([ (]*''([A-Z]+)''', 'g') as m
-               where nf.nspname = 'public' and f.prokind = 'f'
-                 and f.proname in ('has_permission', 'jireh_has_permission')
+              -- O interruptor deixou de saber nomes: quem obedece esta na
+              -- tabela. Ler o corpo da funcao ja nao diria nada.
+              select c.app_code from public.shaar_app_central c
             ) t;
           select 'CODIGOS_EM_MAIS_DE_UMA_APP|' || coalesce(
                    string_agg(c || ' (' || apps || ')', ', ' order by c), 'nenhum')
