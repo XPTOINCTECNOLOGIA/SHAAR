@@ -65,6 +65,12 @@ jobs:
 
           cat > consulta.sql <<'FIMSQL'
           select 'DIVERGENCIA|' || count(*) from public.shaar_permissao_divergencias;
+          select 'REAL_TETELESTAI|controlo ' || r.controlo_positivos
+                 || ' / perde ' || r.perdia
+                 || ' / ganha sem revisao ' || r.ganha_sem_revisao
+                 || ' / ganha com revisao ' || (r.ganharia - r.ganha_sem_revisao)
+                 || ' / pares ' || r.pares_avaliados
+            from public.shaar_divergencia_real_resumo('TETELESTAI') r;
           select 'TESTES_AUTORIZACAO|' || count(*) filter (where passou) || '/' || count(*)
             from public.shaar_correr_testes();
           select 'TESTES_ESCOPO|' || count(*) filter (where passou) || '/' || count(*)
@@ -225,6 +231,10 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
           DIV=$(printf '%s\n' "$SAIDA" | awk -F'|' '/^DIVERGENCIA\|/{print $2}' | tr -d '[:space:]')
+          REAL=$(printf '%s\n' "$SAIDA" | awk -F'|' '/^REAL_TETELESTAI\|/{print $2}')
+          R_CTL=$(printf '%s\n' "$REAL" | awk '{print $2}')
+          R_PER=$(printf '%s\n' "$REAL" | awk '{print $5}')
+          R_GSR=$(printf '%s\n' "$REAL" | awk '{print $10}')
           AMB=$(printf '%s\n' "$SAIDA" | awk -F'|' '/^IDENTIDADE_AMBIGUA\|/{print $2}' | tr -d '[:space:]')
           VAZ=$(printf '%s\n' "$SAIDA" | awk -F'|' '/^IDENTIDADE_EMAIL_VAZIO\|/{print $2}' | tr -d '[:space:]')
           TA=$(printf '%s\n' "$SAIDA" | awk -F'|' '/^TESTES_AUTORIZACAO\|/{print $2}')
@@ -233,6 +243,22 @@ jobs:
           FALHOU=0
           if [ "${DIV:-x}" != "0" ]; then
             echo "::error::Divergencia ${DIV} entre a Central e os modelos antigos. Nao trocar a autoridade de mais nenhuma aplicacao ate voltar a zero, e descobrir quem mexeu no modelo antigo."
+            FALHOU=1
+          fi
+          # A regra da troca nao e "zero divergencias" — e mais fina. Ninguem pode
+          # PERDER acesso; alguem pode GANHAR, mas so com revisao aberta, ou seja
+          # so se houver alguem a quem foi pedido que confirme. E nada disto vale
+          # se o controlo da impersonacao nao for positivo.
+          if [ "${R_CTL:-0}" = "0" ]; then
+            echo "::error::O controlo da impersonacao deu zero: a funcao antiga nunca respondeu verdadeiro a ninguem com auth_user_id. A medicao da divergencia real nao esta a funcionar, e nenhum dos outros numeros dela vale nada."
+            FALHOU=1
+          fi
+          if [ "${R_PER:-x}" != "0" ]; then
+            echo "::error::${R_PER} respostas em que alguem PERDE acesso por causa da troca. Isto nunca e aceitavel: reverter tirando a condicao do TETELESTAI de jireh_has_permission."
+            FALHOU=1
+          fi
+          if [ "${R_GSR:-x}" != "0" ]; then
+            echo "::error::${R_GSR} respostas em que alguem GANHA acesso sem ter revisao aberta — ou seja, sem que ninguem tenha sido chamado a decidir. E exactamente o que esta Central existe para impedir."
             FALHOU=1
           fi
           if [ "${VAZ:-x}" != "0" ]; then
