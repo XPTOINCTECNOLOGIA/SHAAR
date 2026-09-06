@@ -140,7 +140,7 @@ jobs:
                      and pg_get_functiondef(f.oid) ~ 'jireh_has_permission'
                 ) src
                 cross join lateral regexp_matches(
-                  src.txt, 'jireh_has_permission\([ (]*''([a-zA-Z0-9_.]+)''', 'g') as m
+                  src.txt, 'jireh_has_permission\([ (]*''([a-zA-Z0-9_.:-]+)''', 'g') as m
                 left join public.shaar_permission sp on sp.code = m[1]
                group by 1
             ) t;
