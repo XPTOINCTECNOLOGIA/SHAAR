@@ -1,0 +1,131 @@
+name: Quadro de pessoas e cargos
+
+# Leitura, e só leitura. Existe para uma revisão que só a direcção pode fazer:
+# olhar a lista de quem é quem e dizer onde a base está errada.
+#
+# O cargo deixou de ser um adorno no dia em que passou a ser critério de
+# regras — a excepção do CEO à segregação de funções assenta nele, e a vista
+# do modelo antigo tem um ramo inteiro que depende do cargo CFO. Uma linha
+# errada aqui é uma regra errada lá.
+#
+# Os activos imprimem-se em ÚLTIMO lugar de propósito: o `az vm run-command`
+# corta a saída pelo princípio, e é a lista dos activos que não pode faltar.
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: vm-supabase
+  cancel-in-progress: false
+
+jobs:
+  quadro:
+    runs-on: ubuntu-latest
+    name: Ler o quadro de pessoas
+    steps:
+      - name: Login no Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Consultar a base
+        env:
+          RG: rg-xpto-plataforma
+          VM: vm-supabase
+        run: |
+          set -euo pipefail
+
+          cat > consulta.sql <<'FIMSQL'
+          select 'RESUMO|' || count(*) filter (where active)::text || ' activas, '
+                 || count(*) filter (where not active)::text || ' inactivas, '
+                 || count(*) filter (where active and position_id is null)::text
+                 || ' activas SEM CARGO'
+            from public.users;
+
+          select 'CARGOS_SEM_NINGUEM|' || coalesce(string_agg(p.name, ', ' order by p.name), 'nenhum')
+            from public.positions p
+           where p.active
+             and not exists (select 1 from public.users u
+                              where u.position_id = p.id and u.active);
+
+          select 'INACTIVA|' || u.full_name
+                 || '|' || coalesce(pos.name, '(sem cargo)')
+                 || '|' || coalesce(prof.name, '(sem perfil)')
+            from public.users u
+            left join public.positions pos on pos.id = u.position_id
+            left join public.profiles  prof on prof.id = u.profile_id
+           where not u.active
+           order by u.full_name;
+
+          -- Os activos, por cargo. Quem nao tem cargo vem primeiro dentro da
+          -- lista: e onde a revisao comeca.
+          select 'P|' || u.full_name
+                 || '|' || coalesce(pos.name, '>>> SEM CARGO <<<')
+                 || '|' || coalesce(prof.name, '(sem perfil)')
+                 || '|' || u.email
+            from public.users u
+            left join public.positions pos on pos.id = u.position_id
+            left join public.profiles  prof on prof.id = u.profile_id
+           where u.active
+           order by (u.position_id is not null), coalesce(pos.name, ''), u.full_name;
+          FIMSQL
+
+          B64=$(base64 -w0 consulta.sql)
+          REMOTE="set -e
+          PGPW=\$(grep '^POSTGRES_PASSWORD=' /opt/supa/.env | cut -d= -f2-)
+          echo '$B64' | base64 -d > /tmp/quadro.sql
+          echo '===INICIO==='
+          docker exec -i -e PGPASSWORD=\"\$PGPW\" supabase-db psql -U postgres -h 127.0.0.1 -qtA -f - < /tmp/quadro.sql
+          echo '===FIM==='
+          rm -f /tmp/quadro.sql"
+
+          esperar_a_vm() {
+            local t erro
+            for t in 1 2 3 4 5 6; do
+              erro=$(mktemp)
+              if SAIDA_AZ=$(az vm run-command invoke -g "$RG" -n "$VM" \
+                              --command-id RunShellScript --scripts "$1" \
+                              --query "value[0].message" -o tsv 2>"$erro"); then
+                rm -f "$erro"; return 0
+              fi
+              if grep -qi "in progress" "$erro"; then
+                echo "A VM esta ocupada com outro run-command; espero $((t * 10))s (tentativa $t de 6)"
+                rm -f "$erro"; sleep $((t * 10)); continue
+              fi
+              echo "::error::az vm run-command falhou:"; cat "$erro"; rm -f "$erro"; return 1
+            done
+            echo "::error::A VM ficou ocupada seis tentativas seguidas."; return 1
+          }
+
+          esperar_a_vm "$REMOTE" || exit 1
+          SAIDA=$(printf '%s\n' "$SAIDA_AZ" \
+                  | grep -E '^(RESUMO|CARGOS_SEM_NINGUEM|INACTIVA|P)\|' || true)
+
+          if ! printf '%s\n' "$SAIDA_AZ" | grep -q '===INICIO==='; then
+            echo "::warning::A saida da VM veio cortada no inicio: faltam linhas, e as que faltam sao as primeiras."
+          fi
+          if [ -z "$SAIDA" ]; then
+            echo "::error::Nao consegui ler o quadro. Saida em bruto:"; printf '%s\n' "$SAIDA_AZ"; exit 1
+          fi
+
+          printf '%s\n' "$SAIDA"
+
+          {
+            echo "## Quadro de pessoas e cargos"
+            echo ""
+            printf '%s\n' "$SAIDA" | awk -F'|' '$1=="RESUMO"{print "**"$2"**"}'
+            echo ""
+            echo "### Activas"
+            echo ""
+            echo "| Pessoa | Cargo | Perfil | E-mail |"
+            echo "|---|---|---|---|"
+            printf '%s\n' "$SAIDA" | awk -F'|' '$1=="P"{printf "| %s | %s | %s | %s |\n",$2,$3,$4,$5}'
+            echo ""
+            echo "### Inactivas"
+            echo ""
+            echo "| Pessoa | Cargo | Perfil |"
+            echo "|---|---|---|"
+            printf '%s\n' "$SAIDA" | awk -F'|' '$1=="INACTIVA"{printf "| %s | %s | %s |\n",$2,$3,$4}'
+            echo ""
+            printf '%s\n' "$SAIDA" | awk -F'|' '$1=="CARGOS_SEM_NINGUEM"{print "**Cargos sem ninguém activo:** "$2}'
+          } >> "$GITHUB_STEP_SUMMARY"
