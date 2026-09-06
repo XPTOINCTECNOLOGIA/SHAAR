@@ -118,7 +118,11 @@ jobs:
           -- portanto o que importa imprime-se no fim.
           with acumula as (
             select ga.user_id,
-                   c.app_a || '/' || c.code_a || ' + ' || c.code_b as rotulo,
+                   c.app_a || '/' || c.code_a || ' + ' ||
+                   case when regexp_replace(c.code_a, '[.:].*$', '')
+                           = regexp_replace(c.code_b, '[.:].*$', '')
+                        then regexp_replace(c.code_b, '^[^.:]*[.:]', '')
+                        else c.code_b end                          as rotulo,
                    (pa.user_id is not null and pb.user_id is not null) as entra_nas_duas
               from public.shaar_permission_conflito c
               join public.shaar_permission_grant ga
