@@ -1,0 +1,152 @@
+name: Levantamento para trocar a autoridade
+
+# Ferramenta de LEITURA para preparar a fase 5 de cada aplicação. Não altera
+# nada; não aceita SQL de fora.
+#
+# A pergunta que ela responde é a única que interessa antes de ligar a chave:
+#
+#     se eu passar a exigir a permissão X, quantas das pessoas que hoje
+#     entram nesta aplicação deixam de conseguir trabalhar?
+#
+# Se a resposta for zero, a política é um espelho do que já se passa e pode
+# entrar. Se for diferente de zero, ou o mapeamento está errado, ou as
+# concessões estão erradas — e nos dois casos isso decide-se antes, não
+# depois de alguém ficar sem trabalhar na segunda-feira de manhã.
+#
+# As consultas são fixas. O que vem de fora são dois valores, ambos apertados
+# por expressão regular: o código da aplicação e um padrão de nome de tabela.
+# Não é paranoia deslocada — este workflow corre com credenciais do Azure
+# sobre a base de produção de um sistema de autorização. Um campo de SQL
+# livre aqui seria uma porta das traseiras à volta de tudo o que a Central
+# está a construir.
+
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        description: 'Código da aplicação (ex.: TETELESTAI)'
+        required: true
+        type: string
+      tabelas:
+        description: 'Padrão LIKE das tabelas (ex.: todo% ou operation%). Vazio = nenhuma.'
+        required: false
+        default: ''
+        type: string
+
+concurrency:
+  group: levantamento
+  cancel-in-progress: false
+
+jobs:
+  levantar:
+    runs-on: ubuntu-latest
+    name: Levantar o terreno
+    steps:
+      - name: Validar entradas
+        env:
+          APP: ${{ inputs.app }}
+          TAB: ${{ inputs.tabelas }}
+        run: |
+          set -euo pipefail
+          echo "$APP" | grep -qE '^[A-Z][A-Z0-9_]{1,31}$' || {
+            echo "::error::Codigo de aplicacao invalido: $APP"; exit 1; }
+          if [ -n "$TAB" ]; then
+            echo "$TAB" | grep -qE '^[a-z0-9_%]{2,40}$' || {
+              echo "::error::Padrao de tabela invalido: $TAB"; exit 1; }
+          fi
+          echo "app=$APP tabelas=${TAB:-nenhuma}"
+
+      - name: Login no Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Consultar
+        env:
+          RG: rg-xpto-plataforma
+          VM: vm-supabase
+          APP: ${{ inputs.app }}
+          TAB: ${{ inputs.tabelas }}
+        run: |
+          set -euo pipefail
+
+          # As entradas já passaram pela regex do passo anterior. Vão para o SQL
+          # por psql -v, e são usadas com :'app' — que cita como literal e não
+          # como pedaço de texto colado.
+          cat > consulta.sql <<'FIMSQL'
+          \echo === IMPACTO POR PERMISSAO ===
+          \echo Quantas pessoas com o portao aberto TEM cada permissao, e quantas ficariam de fora.
+          with porta as (
+            select g.user_id from public.shaar_gate_access g where g.app_code = :'app'
+          )
+          select c.code,
+                 c.name,
+                 (select count(*) from porta)                                as com_portao,
+                 count(gr.user_id)                                           as tem,
+                 (select count(*) from porta) - count(gr.user_id)            as ficariam_de_fora
+            from public.shaar_permission c
+            left join public.shaar_permission_grant gr
+                   on gr.app_code = c.app_code and gr.code = c.code
+                  and gr.efeito = 'permitir'
+                  and gr.user_id in (select user_id from porta)
+           where c.app_code = :'app' and c.active
+           group by c.code, c.name
+           order by 5 desc, 1;
+
+          \echo
+          \echo === TABELAS ===
+          select c.relname                                     as tabela,
+                 c.relrowsecurity                              as rls,
+                 (select count(*) from pg_policy p where p.polrelid = c.oid) as politicas,
+                 coalesce((select s.n_live_tup from pg_stat_user_tables s
+                            where s.relid = c.oid), 0)         as linhas
+            from pg_class c join pg_namespace n on n.oid = c.relnamespace
+           where n.nspname = 'public' and c.relkind = 'r'
+             and :'tab' <> '' and c.relname like :'tab'
+           order by 1;
+
+          \echo
+          \echo === POLITICAS EXISTENTES ===
+          select c.relname                                    as tabela,
+                 p.polname                                    as politica,
+                 case p.polcmd when 'r' then 'select' when 'a' then 'insert'
+                               when 'w' then 'update' when 'd' then 'delete'
+                               else 'all' end                 as comando,
+                 case when p.polpermissive then 'permissiva' else 'RESTRITIVA' end as tipo,
+                 left(coalesce(pg_get_expr(p.polqual, p.polrelid), '-'), 90) as usando
+            from pg_policy p
+            join pg_class c on c.oid = p.polrelid
+            join pg_namespace n on n.oid = c.relnamespace
+           where n.nspname = 'public'
+             and :'tab' <> '' and c.relname like :'tab'
+           order by 1, 2;
+          FIMSQL
+
+          B64=$(base64 -w0 consulta.sql)
+          REMOTE="set -e
+          PGPW=\$(grep '^POSTGRES_PASSWORD=' /opt/supa/.env | cut -d= -f2-)
+          echo '$B64' | base64 -d > /tmp/levantamento.sql
+          echo '===INICIO==='
+          docker exec -i -e PGPASSWORD=\"\$PGPW\" supabase-db psql -U postgres -h 127.0.0.1 \
+            -v app='$APP' -v tab='$TAB' -f - < /tmp/levantamento.sql
+          echo '===FIM==='
+          rm -f /tmp/levantamento.sql"
+
+          BRUTO=$(az vm run-command invoke -g "$RG" -n "$VM" --command-id RunShellScript \
+            --scripts "$REMOTE" --query "value[0].message" -o tsv)
+          SAIDA=$(printf '%s\n' "$BRUTO" | awk '/===INICIO===/{f=1;next} /===FIM===/{f=0} f')
+
+          if [ -z "$SAIDA" ]; then
+            echo "::error::Sem resposta da base. Saida em bruto:"
+            printf '%s\n' "$BRUTO"
+            exit 1
+          fi
+
+          printf '%s\n' "$SAIDA"
+          {
+            echo "## Levantamento — $APP"
+            echo ""
+            echo '```'
+            printf '%s\n' "$SAIDA"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
