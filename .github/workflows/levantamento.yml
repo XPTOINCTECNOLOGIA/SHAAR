@@ -213,19 +213,6 @@ jobs:
            order by 1;
 
           \echo
-          \echo === CORPO DE UMA FUNCAO ===
-          \echo Uma de cada vez: a saida do az vem truncada no inicio quando e longa,
-          \echo e despejar sete corpos de uma vez perde justamente o que interessa.
-          select substring(pg_get_functiondef(p.oid)
-                           from ((:'parte')::int - 1) * 1500 + 1 for 1500) as pedaco,
-                 length(pg_get_functiondef(p.oid))                        as total_caracteres,
-                 ceil(length(pg_get_functiondef(p.oid)) / 1500.0)::int    as pedacos
-            from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-           where n.nspname = 'public' and p.prokind = 'f'
-             and :'fun' <> '' and p.proname = :'fun'
-           limit 1;
-
-          \echo
           \echo === RISCO INVERSO: QUEM GANHARIA ACESSO ===
           \echo A funcao antiga identifica a pessoa so por auth_user_id. A da Central
           \echo identifica tambem por email. Delegar pode DAR acesso a contas que hoje
@@ -250,6 +237,23 @@ jobs:
             join public.positions pos on pos.id = u.position_id and pos.active
             left join public.profiles pf on pf.id = u.profile_id
            where u.active and not u.blocked and upper(pos.name) = 'CFO';
+          \echo
+          \echo === CORPO DE UMA FUNCAO ===
+          \echo Em ultimo lugar de proposito: a saida do az e cortada pelo inicio
+          \echo quando e longa, portanto o que tem de chegar inteiro imprime-se no fim.
+          \pset format unaligned
+          \pset tuples_only on
+          select 'PEDACO ' || :'parte' || ' de ' ||
+                 ceil(length(pg_get_functiondef(p.oid)) / 1500.0)::int::text ||
+                 ' (' || length(pg_get_functiondef(p.oid))::text || ' caracteres)'
+                 || chr(10) || '---8<---' || chr(10) ||
+                 substring(pg_get_functiondef(p.oid)
+                           from ((:'parte')::int - 1) * 1500 + 1 for 1500)
+                 || chr(10) || '--->8---'
+            from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+           where n.nspname = 'public' and p.prokind = 'f'
+             and :'fun' <> '' and p.proname = :'fun'
+           limit 1;
           FIMSQL
 
           B64=$(base64 -w0 consulta.sql)
