@@ -68,6 +68,24 @@ jobs:
             left join public.profiles  prof on prof.id = u.profile_id
            where u.active
            order by (u.position_id is not null), coalesce(pos.name, ''), u.full_name;
+
+          -- Quem esta activo sem cargo ou sem perfil: o que tem hoje, na
+          -- pratica. Sem perfil nao chega permissao herdada nenhuma, portanto a
+          -- pergunta util nao e "falta-lhe um campo" — e "consegue trabalhar?".
+          select 'FALTA|' || u.full_name
+                 || '|' || u.email
+                 || '|' || case when u.position_id is null then 'sem cargo' else 'com cargo' end
+                 || '|' || case when u.profile_id  is null then 'SEM PERFIL' else 'com perfil' end
+                 || '|portoes: ' || coalesce((select string_agg(g.app_code, ' ' order by g.app_code)
+                                                from public.shaar_gate_access g
+                                               where g.user_id = u.id), 'nenhum')
+                 || '|concessoes: ' || (select count(*)::text
+                                          from public.shaar_permission_grant pg
+                                         where pg.user_id = u.id and pg.efeito = 'permitir')
+                 || '|criada em ' || to_char(u.created_at, 'YYYY-MM-DD')
+            from public.users u
+           where u.active and (u.position_id is null or u.profile_id is null)
+           order by u.full_name;
           FIMSQL
 
           B64=$(base64 -w0 consulta.sql)
@@ -99,7 +117,7 @@ jobs:
 
           esperar_a_vm "$REMOTE" || exit 1
           SAIDA=$(printf '%s\n' "$SAIDA_AZ" \
-                  | grep -E '^(RESUMO|CARGOS_SEM_NINGUEM|INACTIVA|P)\|' || true)
+                  | grep -E '^(RESUMO|CARGOS_SEM_NINGUEM|INACTIVA|P|FALTA)\|' || true)
 
           if ! printf '%s\n' "$SAIDA_AZ" | grep -q '===INICIO==='; then
             echo "::warning::A saida da VM veio cortada no inicio: faltam linhas, e as que faltam sao as primeiras."
@@ -128,4 +146,10 @@ jobs:
             printf '%s\n' "$SAIDA" | awk -F'|' '$1=="INACTIVA"{printf "| %s | %s | %s |\n",$2,$3,$4}'
             echo ""
             printf '%s\n' "$SAIDA" | awk -F'|' '$1=="CARGOS_SEM_NINGUEM"{print "**Cargos sem ninguém activo:** "$2}'
+            echo ""
+            echo "### Activas sem cargo ou sem perfil — o que têm hoje"
+            echo ""
+            echo "| Pessoa | E-mail | Cargo | Perfil | Portões | Concessões | Criada |"
+            echo "|---|---|---|---|---|---|---|"
+            printf '%s\n' "$SAIDA" | awk -F'|' '$1=="FALTA"{printf "| %s | %s | %s | %s | %s | %s | %s |\n",$2,$3,$4,$5,$6,$7,$8}'
           } >> "$GITHUB_STEP_SUMMARY"
