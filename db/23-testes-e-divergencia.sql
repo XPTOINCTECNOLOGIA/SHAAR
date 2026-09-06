@@ -227,6 +227,12 @@ select 'com portao do SPHRAGIS assina documentos', u.email, 'SPHRAGIS', 'documen
   join public.shaar_gate_access g on g.user_id=u.id and g.app_code='SPHRAGIS'
  where u.active limit 1;
 
+-- ATENÇÃO (set/2026): os quatro casos do TIKKUN e do BNEI abaixo citam
+-- códigos que eu inventei e que já não existem — o catálogo destas duas
+-- aplicações passou a ser o que elas próprias fazem (azure-migrations 016 e
+-- 018), e os casos de referência foram refeitos na 020. Este ficheiro é
+-- histórico: não é aplicado pelo pipeline do Azure. Se alguém o replicar,
+-- replica a invenção.
 -- técnico do TIKKUN executa mas não aprova
 insert into public.shaar_autorizacao_teste (descricao, email, app_code, code, contexto, esperado)
 select 'tecnico do TIKKUN executa ordem de servico', u.email, 'TIKKUN', 'os.executar', '{}', true
