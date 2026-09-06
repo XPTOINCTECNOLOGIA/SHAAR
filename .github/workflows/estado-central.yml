@@ -111,6 +111,15 @@ jobs:
                where nf.nspname = 'public' and f.prokind = 'f'
                  and f.proname in ('has_permission', 'jireh_has_permission')
             ) t;
+          select 'CODIGOS_EM_MAIS_DE_UMA_APP|' || coalesce(
+                   string_agg(c || ' (' || apps || ')', ', ' order by c), 'nenhum')
+            from (
+              select sp.code as c, string_agg(distinct sp.app_code, '+') as apps
+                from public.shaar_permission sp
+               where sp.active and sp.origem = 'herdado'
+               group by sp.code
+              having count(distinct sp.app_code) > 1
+            ) d;
           select 'CODIGOS_ANTIGOS_FORA_DO_CATALOGO|' || count(distinct p.code)
             from public.permissions p
            where not exists (select 1 from public.shaar_permission sp where sp.code = p.code);
