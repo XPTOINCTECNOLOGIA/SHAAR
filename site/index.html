@@ -995,8 +995,29 @@
 
 
 
+  // Uma aplicacao que recusa um bilhete manda a pessoa para ca com ?app=CODIGO.
+  // Se ela tiver esse portao, levamo-la de volta com bilhete novo em vez de a
+  // deixar no salao a clicar outra vez no sitio de onde acabou de vir.
+  function appPedida(){
+    try {
+      const q = new URLSearchParams(location.search);
+      const a = (q.get("app") || "").trim().toUpperCase();
+      return /^[A-Z0-9_]{2,32}$/.test(a) ? a : null;
+    } catch (e) { return null; }
+  }
+  function limparPedido(){
+    try { history.replaceState(null, "", location.pathname); } catch (e) {}
+  }
+
   function route(p){
     const mine = Object.keys(p.apps);
+    const pedida = appPedida();
+    if (pedida && mine.includes(pedida)) { limparPedido(); direto(pedida, p); return; }
+    if (pedida) {
+      // autenticou, mas nao tem aquele portao: fica no salao com o recado
+      limparPedido();
+      toast(`Você não tem acesso ao ${appName(pedida)}.`);
+    }
     if (mine.length === 1) direto(mine[0], p); else salao(p, mine);
   }
 
