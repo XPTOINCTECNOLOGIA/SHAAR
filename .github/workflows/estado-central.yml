@@ -77,6 +77,25 @@ jobs:
                  || ' / ganha com revisao ' || (r.ganharia - r.ganha_sem_revisao)
                  || ' / pares ' || r.pares_avaliados
             from public.shaar_divergencia_real_resumo('TETELESTAI') r;
+          -- A permissao e da pessoa; o portao diz se ela entra hoje. Se um
+          -- direito do modelo antigo nao estiver guardado, abrir o portao a
+          -- essa pessoa amanha nao lhe daria nada — e esse e o unico sentido
+          -- em que uma permissao se perde de verdade.
+          select 'DIREITOS_POR_GUARDAR|' || count(*)
+            from public.shaar_permissao_verdade_antiga a
+            left join public.shaar_permission_grant g
+              on g.user_id = a.user_id and g.app_code = a.app_code and g.code = a.code
+           where g.user_id is null;
+          select 'DIREITOS_SEM_PORTAO|' || coalesce(
+                   string_agg(app_code || ' ' || n, ', ' order by app_code), 'nenhum')
+            from (
+              select g.app_code, count(*)::text as n
+                from public.shaar_permission_grant g
+               where not exists (select 1 from public.shaar_gate_access ga
+                                  where ga.user_id = g.user_id
+                                    and ga.app_code = g.app_code)
+               group by g.app_code
+            ) d;
           select 'TESTES_AUTORIZACAO|' || count(*) filter (where passou) || '/' || count(*)
             from public.shaar_correr_testes();
           select 'TESTES_ESCOPO|' || count(*) filter (where passou) || '/' || count(*)
@@ -269,6 +288,11 @@ jobs:
           # se o controlo da impersonacao nao for positivo.
           if [ "${R_CTL:-0}" = "0" ]; then
             echo "::error::O controlo da impersonacao deu zero: a funcao antiga nunca respondeu verdadeiro a ninguem com auth_user_id. A medicao da divergencia real nao esta a funcionar, e nenhum dos outros numeros dela vale nada."
+            FALHOU=1
+          fi
+          GUARD=$(printf '%s\n' "$SAIDA" | awk -F'|' '/^DIREITOS_POR_GUARDAR\|/{print $2}' | tr -d '[:space:]')
+          if [ "${GUARD:-x}" != "0" ]; then
+            echo "::error::${GUARD} direitos do modelo antigo nao estao guardados na Central. A permissao e da pessoa e o portao e independente: se o direito nao estiver guardado, abrir o portao a essa pessoa amanha nao lhe da nada. E o unico sentido em que uma permissao se perde de verdade."
             FALHOU=1
           fi
           if [ "${R_PER:-x}" != "0" ]; then
