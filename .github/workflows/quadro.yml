@@ -49,8 +49,8 @@ jobs:
                               where u.position_id = p.id and u.active);
 
           select 'INACTIVA|' || u.full_name
-                 || '|' || coalesce(pos.name, '(sem cargo)')
-                 || '|' || coalesce(prof.name, '(sem perfil)')
+                 || '|' || coalesce(pos.name, '<<NULO>>')
+                 || '|' || coalesce(prof.name, '<<NULO>>')
             from public.users u
             left join public.positions pos on pos.id = u.position_id
             left join public.profiles  prof on prof.id = u.profile_id
@@ -60,8 +60,8 @@ jobs:
           -- Os activos, por cargo. Quem nao tem cargo vem primeiro dentro da
           -- lista: e onde a revisao comeca.
           select 'P|' || u.full_name
-                 || '|' || coalesce(pos.name, '>>> SEM CARGO <<<')
-                 || '|' || coalesce(prof.name, '(sem perfil)')
+                 || '|' || coalesce(pos.name, '<<NULO>>')
+                 || '|' || coalesce(prof.name, '<<NULO>>')
                  || '|' || u.email
             from public.users u
             left join public.positions pos on pos.id = u.position_id
