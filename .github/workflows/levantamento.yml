@@ -141,6 +141,38 @@ jobs:
            order by 1, 2;
 
           \echo
+          \echo === RESUMO: QUEM DECIDE, POR PREFIXO DE TABELA ===
+          select split_part(c.relname, '_', 1)                          as prefixo,
+                 count(*) filter (where coalesce(pg_get_expr(p.polqual, p.polrelid),
+                        pg_get_expr(p.polwithcheck, p.polrelid),'') ~ 'has_permission') as por_perfil,
+                 count(*) filter (where coalesce(pg_get_expr(p.polqual, p.polrelid),
+                        pg_get_expr(p.polwithcheck, p.polrelid),'') ~ 'shaar_pode')     as pela_central
+            from pg_policy p
+            join pg_class c on c.oid = p.polrelid
+            join pg_namespace n on n.oid = c.relnamespace
+           where n.nspname = 'public'
+             and (coalesce(pg_get_expr(p.polqual, p.polrelid), '') ~ 'has_permission|shaar_pode'
+               or coalesce(pg_get_expr(p.polwithcheck, p.polrelid), '') ~ 'has_permission|shaar_pode')
+           group by 1 order by 2 desc, 1;
+
+          \echo
+          \echo === O QUE MUDA SE has_permission PASSAR PELA CENTRAL ===
+          \echo has_permission olha so o perfil. shaar_pode exige TAMBEM o portao aberto.
+          \echo Estas sao as pessoas que perderiam acesso por nao terem portao.
+          select sp.app_code,
+                 count(distinct u.id)                as pessoas_sem_portao,
+                 count(*)                            as permissoes_afectadas,
+                 string_agg(distinct u.email::text, ', ' order by u.email::text) as quem
+            from public.users u
+            join public.profile_permissions pp on pp.profile_id = u.profile_id
+            join public.permissions pr         on pr.id = pp.permission_id
+            join public.shaar_permission sp    on sp.code = pr.code and sp.origem = 'herdado'
+           where u.active and not u.blocked
+             and not exists (select 1 from public.shaar_gate_access g
+                              where g.user_id = u.id and g.app_code = sp.app_code)
+           group by sp.app_code order by 2 desc;
+
+          \echo
           \echo === FUNCOES DE PERMISSAO EXISTENTES ===
           select p.proname || '(' || pg_get_function_arguments(p.oid) || ') -> '
                  || pg_get_function_result(p.oid) as funcao,
